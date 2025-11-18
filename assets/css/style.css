@@ -1,0 +1,251 @@
+body {
+  background-color: white;
+}
+
+h2, h4 {
+  color: gray;
+}
+
+#alerts {
+  font-weight: bold;
+}
+.table-responsive{
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.sidebar {
+  width: 250px;
+  background: linear-gradient(135deg, #0a74da, #061a40);
+  color: #fff;
+  padding-top: 20px;
+  transition: width 0.3s;
+  position: relative;
+}
+
+.sidebar.minimized {
+  width: 70px;
+}
+.sidebar.minimized .logo-text {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.nav-links {
+  list-style: none;
+  padding: 0;
+}
+
+.nav-links li {
+  padding: 15px 20px;
+}
+
+.nav-links a {
+  color: #fff;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+}
+
+.icon {
+  font-size: 1.2em;
+  margin-right: 15px;
+}
+
+.sidebar.minimized .text {
+  display: none;
+}
+.toggle-btn {
+  color: white;
+  font-size: 1.5em;
+  cursor: pointer;
+  padding: 15px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+.main-header {
+  height: 60px;
+  background: linear-gradient(135deg, #0a74da, #061a40);
+  color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  user-select: none;
+}
+
+.header-center {
+  flex-grow: 1;
+  text-align: center;
+  pointer-events: none; /* disables interaction */
+}
+
+.header-right i {
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.header-right i:hover {
+  color: #0d6efd; /* bootstrap primary blue on hover */
+}
+
+.user-info span {
+  user-select: text;
+}
+#messageBox.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+#messageBox.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+.spin {
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    100% { transform: rotate(360deg); }
+}
+
+.spinner-border {
+  width: 2rem;
+  height: 2rem;
+}
+
+
+
+
+/* Styling for Dashboard*/
+#confirmClearModal .modal-header {
+    background: linear-gradient(135deg, #0a74da, #061a40);
+    color: #fff;
+}
+
+#confirmClearModal .modal-footer {
+    background: white;
+    color: #fff;
+}
+
+.my-card {
+    border: 2px solid #0a74da;
+}
+
+.right-border {
+    border-right: 2px solid #0a74da;
+}
+
+.gradient-text {
+    background: linear-gradient(135deg, #0a74da, #061a40);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+    font-weight: bold;
+}
+
+.threat-indicator {
+    width: 200px;
+    height: 200px;
+    margin: 0 auto;
+}
+
+.attack-type-badge {
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    margin: 2px;
+    display: inline-block;
+}
+
+.threat-low {
+    background: #28a745;
+    color: white;
+}
+
+.threat-medium {
+    background: #ffc107;
+    color: black;
+}
+
+.threat-high {
+    background: #fd7e14;
+    color: white;
+}
+
+.threat-critical {
+    background: #dc3545;
+    color: white;
+}
+
+.live-indicator {
+    width: 10px;
+    height: 10px;
+    background: #28a745;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+.security-score {
+    font-size: 3rem;
+    font-weight: bold;
+    background: linear-gradient(135deg, #0a74da, #061a40);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.attack-timeline {
+    height: 100px;
+    overflow-y: auto;
+    font-size: 12px;
+}
+
+.attack-entry {
+    padding: 5px;
+    border-left: 3px solid #dc3545;
+    margin-bottom: 5px;
+    background: rgba(220, 53, 69, 0.1);
+}
+
+html,
+body {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.card {
+    width: 100%;
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+.equal-height-row .card {
+    height: 100%;
+}
+
+/* End of Styling for Dashboard */

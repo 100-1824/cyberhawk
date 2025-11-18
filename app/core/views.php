@@ -1255,4 +1255,948 @@ function getDefaultMalwareStats()
         'last_scan' => 'Never'
     ];
 }
+
+function get_reporting_page()
+{
+    if (!isset($_SESSION['user_id'])) {
+        header("Location: " . MDIR . "login");
+        exit;
+    }
+    require 'app/views/pages/reporting.php';
+}
+
+/**
+ * Get aggregated reporting data
+ */
+function get_reporting_data()
+{
+    header('Content-Type: application/json');
+    
+    $projectDir = rtrim(DIR, '/\\');
+    $dataDir = $projectDir . '/assets/data';
+    
+    try {
+        $data = [
+            'ips_traffic' => loadJsonFile($dataDir . '/traffic_log.json'),
+            'alerts' => loadJsonFile($dataDir . '/alerts.json'),
+            'ransomware_stats' => loadJsonFile($dataDir . '/ransomware_stats.json'),
+            'ransomware_activity' => loadJsonFile($dataDir . '/ransomware_activity.json'),
+            'ransomware_threats' => loadJsonFile($dataDir . '/ransomware_threats.json'),
+            'malware_stats' => loadJsonFile($dataDir . '/malware_stats.json'),
+            'malware_reports' => loadJsonFile($dataDir . '/malware_reports.json'),
+            'timestamp' => date('Y-m-d H:i:s')
+        ];
+        
+        echo json_encode($data);
+        
+    } catch (Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Error loading reporting data: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Helper function to load JSON file
+ */
+function loadJsonFile($filePath)
+{
+    if (!file_exists($filePath)) {
+        return [];
+    }
+    
+    try {
+        $content = file_get_contents($filePath);
+        if (empty($content)) {
+            return [];
+        }
+        
+        $data = json_decode($content, true);
+        return is_array($data) ? $data : [];
+        
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Generate executive summary report
+ */
+function generate_executive_summary()
+{
+    header('Content-Type: application/json');
+    
+    $projectDir = rtrim(DIR, '/\\');
+    $dataDir = $projectDir . '/assets/data';
+    
+    try {
+        // Load all data sources
+        $trafficLog = loadJsonFile($dataDir . '/traffic_log.json');
+        $alerts = loadJsonFile($dataDir . '/alerts.json');
+        $ransomwareStats = loadJsonFile($dataDir . '/ransomware_stats.json');
+        $malwareStats = loadJsonFile($dataDir . '/malware_stats.json');
+        
+        // Calculate metrics
+        $totalFlows = count($trafficLog);
+        $totalAlerts = count($alerts);
+        $malwareDetected = $malwareStats['malware_detected'] ?? 0;
+        $ransomwareBlocked = $ransomwareStats['threats_detected'] ?? 0;
+        $threatRate = $totalFlows > 0 ? ($totalAlerts / $totalFlows) * 100 : 0;
+        
+        // Analyze attack types
+        $attackTypes = [];
+        foreach ($alerts as $alert) {
+            $type = $alert['Attack Type'] ?? 'Unknown';
+            $attackTypes[$type] = ($attackTypes[$type] ?? 0) + 1;
+        }
+        
+        // Analyze protocols
+        $protocols = [];
+        foreach ($trafficLog as $flow) {
+            $proto = getProtocolNameFromNumber($flow['Protocol'] ?? 0);
+            $protocols[$proto] = ($protocols[$proto] ?? 0) + 1;
+        }
+        
+        $summary = [
+            'success' => true,
+            'metrics' => [
+                'total_flows' => $totalFlows,
+                'total_alerts' => $totalAlerts,
+                'malware_detected' => $malwareDetected,
+                'ransomware_blocked' => $ransomwareBlocked,
+                'threat_rate' => round($threatRate, 2)
+            ],
+            'attack_types' => $attackTypes,
+            'protocols' => $protocols,
+            'threat_level' => getThreatLevel($threatRate),
+            'recommendations' => generateRecommendations($threatRate, $totalAlerts, $malwareDetected),
+            'generated_at' => date('Y-m-d H:i:s')
+        ];
+        
+        echo json_encode($summary);
+        
+    } catch (Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Error generating summary: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Get protocol name from protocol number
+ */
+function getProtocolNameFromNumber($proto)
+{
+    $proto = (int)$proto;
+    
+    switch ($proto) {
+        case 6:
+            return 'TCP';
+        case 17:
+            return 'UDP';
+        case 1:
+            return 'ICMP';
+        default:
+            return 'Other';
+    }
+}
+
+/**
+ * Determine threat level
+ */
+function getThreatLevel($threatRate)
+{
+    if ($threatRate > 10) {
+        return [
+            'level' => 'HIGH',
+            'color' => 'danger',
+            'message' => 'Significant threat activity detected. Immediate action recommended.'
+        ];
+    } elseif ($threatRate > 5) {
+        return [
+            'level' => 'MEDIUM',
+            'color' => 'warning',
+            'message' => 'Moderate threat activity. Continue monitoring.'
+        ];
+    } else {
+        return [
+            'level' => 'LOW',
+            'color' => 'success',
+            'message' => 'Security posture is good. Maintain current practices.'
+        ];
+    }
+}
+
+/**
+ * Generate security recommendations
+ */
+function generateRecommendations($threatRate, $alertCount, $malwareCount)
+{
+    $recommendations = [];
+    
+    if ($threatRate > 10) {
+        $recommendations[] = "Implement stricter firewall rules to reduce attack surface";
+        $recommendations[] = "Review and update intrusion detection signatures";
+        $recommendations[] = "Consider enabling additional security modules";
+    }
+    
+    if ($alertCount > 50) {
+        $recommendations[] = "High alert volume detected - review alert thresholds";
+        $recommendations[] = "Investigate top source IPs for potential false positives";
+    }
+    
+    if ($malwareCount > 0) {
+        $recommendations[] = "Malware detected - ensure all systems are updated";
+        $recommendations[] = "Run full system scans on affected endpoints";
+        $recommendations[] = "Review and update anti-malware signatures";
+    }
+    
+    if (empty($recommendations)) {
+        $recommendations[] = "Continue monitoring - no critical issues detected";
+        $recommendations[] = "Maintain regular backup schedules";
+        $recommendations[] = "Keep security software up to date";
+    }
+    
+    return $recommendations;
+}
+
+/**
+ * Export report as PDF (requires TCPDF library)
+ * Note: This is a placeholder - actual PDF generation requires additional library
+ */
+function export_report_pdf()
+{
+    header('Content-Type: application/json');
+    
+    // For now, return message to use print functionality
+    echo json_encode([
+        'success' => false,
+        'message' => 'PDF export requires additional library installation. Please use Print to PDF feature in browser.'
+    ]);
+}
+
+/**
+ * Get network statistics for reporting
+ */
+function get_network_statistics()
+{
+    header('Content-Type: application/json');
+    
+    $projectDir = rtrim(DIR, '/\\');
+    $trafficLog = loadJsonFile($projectDir . '/assets/data/traffic_log.json');
+    
+    try {
+        // Calculate statistics
+        $totalFlows = count($trafficLog);
+        $uniqueSources = [];
+        $uniqueDestinations = [];
+        $protocols = [];
+        $ports = [];
+        
+        foreach ($trafficLog as $flow) {
+            $uniqueSources[$flow['Src IP'] ?? 'unknown'] = true;
+            $uniqueDestinations[$flow['Dst IP'] ?? 'unknown'] = true;
+            
+            $proto = getProtocolNameFromNumber($flow['Protocol'] ?? 0);
+            $protocols[$proto] = ($protocols[$proto] ?? 0) + 1;
+            
+            $dstPort = $flow['Dst Port'] ?? 0;
+            $ports[$dstPort] = ($ports[$dstPort] ?? 0) + 1;
+        }
+        
+        // Get top ports
+        arsort($ports);
+        $topPorts = array_slice($ports, 0, 10, true);
+        
+        $stats = [
+            'success' => true,
+            'total_flows' => $totalFlows,
+            'unique_sources' => count($uniqueSources),
+            'unique_destinations' => count($uniqueDestinations),
+            'protocols' => $protocols,
+            'top_ports' => $topPorts
+        ];
+        
+        echo json_encode($stats);
+        
+    } catch (Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Error calculating statistics: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Get threat timeline for reporting
+ */
+function get_threat_timeline()
+{
+    header('Content-Type: application/json');
+    
+    $projectDir = rtrim(DIR, '/\\');
+    $alerts = loadJsonFile($projectDir . '/assets/data/alerts.json');
+    
+    try {
+        // Group alerts by hour
+        $timeline = [];
+        
+        foreach ($alerts as $alert) {
+            $timestamp = $alert['Timestamp'] ?? null;
+            if (!$timestamp) continue;
+            
+            $hour = date('Y-m-d H:00', strtotime($timestamp));
+            $timeline[$hour] = ($timeline[$hour] ?? 0) + 1;
+        }
+        
+        ksort($timeline);
+        
+        echo json_encode([
+            'success' => true,
+            'timeline' => $timeline
+        ]);
+        
+    } catch (Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Error generating timeline: ' . $e->getMessage()
+        ]);
+    }
+}
+/**
+ * ==================== PROFILE MANAGEMENT ====================
+ */
+
+function get_profile_page()
+{
+    if (!isset($_SESSION['user_id'])) {
+        header("Location: " . MDIR . "login");
+        exit;
+    }
+    require 'app/views/pages/profile.php';
+}
+
+function get_user_profile($user_id)
+{
+    $sql = "SELECT id, name, email, role, profile_picture, phone, bio, created_at, last_updated 
+            FROM users WHERE id = ?";
+    $result = mysqli_prepared_query($sql, 'i', [$user_id]);
+    
+    if ($result && count($result) > 0) {
+        return $result[0];
+    }
+    return null;
+}
+
+function update_profile()
+{
+    header('Content-Type: application/json');
+    
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+        return;
+    }
+    
+    $user_id = $_SESSION['user_id'];
+    $name = trim($_POST['name'] ?? '');
+    $phone = trim($_POST['phone'] ?? '');
+    $bio = trim($_POST['bio'] ?? '');
+    
+    // Validation
+    if (empty($name)) {
+        echo json_encode(['success' => false, 'message' => 'Name is required']);
+        return;
+    }
+    
+    if (strlen($name) < 2 || strlen($name) > 100) {
+        echo json_encode(['success' => false, 'message' => 'Name must be between 2 and 100 characters']);
+        return;
+    }
+    
+    if (!empty($phone) && !preg_match('/^[0-9+\-\s()]{7,20}$/', $phone)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid phone number format']);
+        return;
+    }
+    
+    if (strlen($bio) > 500) {
+        echo json_encode(['success' => false, 'message' => 'Bio must be less than 500 characters']);
+        return;
+    }
+    
+    try {
+        $sql = "UPDATE users SET name = ?, phone = ?, bio = ?, last_updated = NOW() WHERE id = ?";
+        $result = mysqli_prepared_query($sql, 'sssi', [$name, $phone, $bio, $user_id]);
+        
+        if ($result) {
+            // Update session
+            $_SESSION['user_name'] = $name;
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'Profile updated successfully',
+                'user' => [
+                    'name' => $name,
+                    'phone' => $phone,
+                    'bio' => $bio
+                ]
+            ]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to update profile']);
+        }
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    }
+}
+
+function upload_profile_picture()
+{
+    header('Content-Type: application/json');
+    
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+        return;
+    }
+    
+    if (!isset($_FILES['profile_picture'])) {
+        echo json_encode(['success' => false, 'message' => 'No file uploaded']);
+        return;
+    }
+    
+    $user_id = $_SESSION['user_id'];
+    $file = $_FILES['profile_picture'];
+    
+    // Validate file
+    $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+    $max_size = 5 * 1024 * 1024; // 5MB
+    
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        echo json_encode(['success' => false, 'message' => 'File upload error']);
+        return;
+    }
+    
+    if (!in_array($file['type'], $allowed_types)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid file type. Only JPG, PNG, and GIF allowed']);
+        return;
+    }
+    
+    if ($file['size'] > $max_size) {
+        echo json_encode(['success' => false, 'message' => 'File too large. Maximum size is 5MB']);
+        return;
+    }
+    
+    // Verify it's actually an image
+    $image_info = getimagesize($file['tmp_name']);
+    if ($image_info === false) {
+        echo json_encode(['success' => false, 'message' => 'File is not a valid image']);
+        return;
+    }
+    
+    try {
+        // Create upload directory if it doesn't exist
+        $upload_dir = DIR . 'assets/uploads/profiles/';
+        if (!is_dir($upload_dir)) {
+            mkdir($upload_dir, 0755, true);
+        }
+        
+        // Get current profile picture to delete old one
+        $user = get_user_profile($user_id);
+        
+        // Generate unique filename
+        $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $filename = 'profile_' . $user_id . '_' . time() . '.' . $extension;
+        $filepath = $upload_dir . $filename;
+        
+        // Move uploaded file
+        if (move_uploaded_file($file['tmp_name'], $filepath)) {
+            // Delete old profile picture if exists
+            if ($user && !empty($user['profile_picture'])) {
+                $old_file = $upload_dir . $user['profile_picture'];
+                if (file_exists($old_file)) {
+                    @unlink($old_file);
+                }
+            }
+            
+            // Update database
+            $sql = "UPDATE users SET profile_picture = ?, last_updated = NOW() WHERE id = ?";
+            $result = mysqli_prepared_query($sql, 'si', [$filename, $user_id]);
+            
+            if ($result) {
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Profile picture updated successfully',
+                    'filename' => $filename,
+                    'url' => MDIR . 'assets/uploads/profiles/' . $filename
+                ]);
+            } else {
+                // Delete uploaded file if database update fails
+                @unlink($filepath);
+                echo json_encode(['success' => false, 'message' => 'Failed to update database']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to save file']);
+        }
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+    }
+}
+
+function delete_profile_picture()
+{
+    header('Content-Type: application/json');
+    
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+        return;
+    }
+    
+    $user_id = $_SESSION['user_id'];
+    
+    try {
+        // Get current profile picture
+        $user = get_user_profile($user_id);
+        
+        if ($user && !empty($user['profile_picture'])) {
+            $upload_dir = DIR . 'assets/uploads/profiles/';
+            $filepath = $upload_dir . $user['profile_picture'];
+            
+            // Delete file
+            if (file_exists($filepath)) {
+                @unlink($filepath);
+            }
+            
+            // Update database
+            $sql = "UPDATE users SET profile_picture = NULL, last_updated = NOW() WHERE id = ?";
+            $result = mysqli_prepared_query($sql, 'i', [$user_id]);
+            
+            if ($result) {
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Profile picture removed successfully'
+                ]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Failed to update database']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'message' => 'No profile picture to delete']);
+        }
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+    }
+}
+
+function change_password()
+{
+    header('Content-Type: application/json');
+    
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+        return;
+    }
+    
+    $user_id = $_SESSION['user_id'];
+    $current_password = $_POST['current_password'] ?? '';
+    $new_password = $_POST['new_password'] ?? '';
+    $confirm_password = $_POST['confirm_password'] ?? '';
+    
+    // Validation
+    if (empty($current_password) || empty($new_password) || empty($confirm_password)) {
+        echo json_encode(['success' => false, 'message' => 'All fields are required']);
+        return;
+    }
+    
+    if ($new_password !== $confirm_password) {
+        echo json_encode(['success' => false, 'message' => 'New passwords do not match']);
+        return;
+    }
+    
+    if (strlen($new_password) < 6) {
+        echo json_encode(['success' => false, 'message' => 'New password must be at least 6 characters']);
+        return;
+    }
+    
+    if ($new_password === $current_password) {
+        echo json_encode(['success' => false, 'message' => 'New password must be different from current password']);
+        return;
+    }
+    
+    try {
+        // Verify current password
+        $sql = "SELECT password FROM users WHERE id = ?";
+        $result = mysqli_prepared_query($sql, 'i', [$user_id]);
+        
+        if (!$result || count($result) === 0) {
+            echo json_encode(['success' => false, 'message' => 'User not found']);
+            return;
+        }
+        
+        $user = $result[0];
+        
+        if (!password_verify($current_password, $user['password'])) {
+            echo json_encode(['success' => false, 'message' => 'Current password is incorrect']);
+            return;
+        }
+        
+        // Update password
+        $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+        $sql = "UPDATE users SET password = ?, last_updated = NOW() WHERE id = ?";
+        $result = mysqli_prepared_query($sql, 'si', [$hashed_password, $user_id]);
+        
+        if ($result) {
+            echo json_encode([
+                'success' => true,
+                'message' => 'Password changed successfully'
+            ]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to update password']);
+        }
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+    }
+}
+
+/**
+ * CyberHawk Settings Backend Functions
+ * Add these functions to app/core/functions.php or app/core/views.php
+ */
+
+// ==================== PAGE LOADER ====================
+function get_settings_page()
+{
+    if (!isset($_SESSION['user_id'])) {
+        header("Location: " . MDIR . "login");
+        exit;
+    }
+    require 'app/views/pages/settings.php';
+}
+
+// ==================== PROFILE MANAGEMENT ====================
+// Profile update removed - already exists in codebase
+
+// ==================== PASSWORD MANAGEMENT ====================
+
+function handle_update_password()
+{
+    header('Content-Type: application/json');
+    
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        return;
+    }
+    
+    $userId = $_SESSION['user_id'];
+    $currentPassword = $_POST['current_password'] ?? '';
+    $newPassword = $_POST['new_password'] ?? '';
+    
+    if (empty($currentPassword) || empty($newPassword)) {
+        echo json_encode(['success' => false, 'message' => 'All fields are required']);
+        return;
+    }
+    
+    if (strlen($newPassword) < 6) {
+        echo json_encode(['success' => false, 'message' => 'Password must be at least 6 characters']);
+        return;
+    }
+    
+    // Verify current password
+    $sql = "SELECT password FROM users WHERE id = ?";
+    $user = mysqli_prepared_query($sql, 'i', [$userId]);
+    
+    if (empty($user)) {
+        echo json_encode(['success' => false, 'message' => 'User not found']);
+        return;
+    }
+    
+    if (!password_verify($currentPassword, $user[0]['password'])) {
+        echo json_encode(['success' => false, 'message' => 'Current password is incorrect']);
+        return;
+    }
+    
+    // Update password
+    $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+    $updateSql = "UPDATE users SET password = ? WHERE id = ?";
+    $result = mysqli_prepared_query($updateSql, 'si', [$hashedPassword, $userId]);
+    
+    if ($result) {
+        echo json_encode(['success' => true, 'message' => 'Password updated successfully']);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Failed to update password']);
+    }
+}
+
+// ==================== SYSTEM SETTINGS ====================
+
+function handle_save_settings()
+{
+    header('Content-Type: application/json');
+    
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        return;
+    }
+    
+    $userId = $_SESSION['user_id'];
+    $settings = json_decode($_POST['settings'] ?? '{}', true);
+    
+    if (!$settings) {
+        echo json_encode(['success' => false, 'message' => 'Invalid settings data']);
+        return;
+    }
+    
+    // Create settings table if it doesn't exist
+    $createTableSql = "CREATE TABLE IF NOT EXISTS system_settings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        setting_key VARCHAR(100) NOT NULL,
+        setting_value TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_user_setting (user_id, setting_key),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )";
+    mysqli_prepared_query($createTableSql);
+    
+    // Save each setting
+    foreach ($settings as $key => $value) {
+        $insertSql = "INSERT INTO system_settings (user_id, setting_key, setting_value) 
+                      VALUES (?, ?, ?) 
+                      ON DUPLICATE KEY UPDATE setting_value = ?";
+        
+        $valueStr = is_bool($value) ? ($value ? '1' : '0') : (string)$value;
+        
+        mysqli_prepared_query($insertSql, 'isss', [$userId, $key, $valueStr, $valueStr]);
+    }
+    
+    echo json_encode(['success' => true, 'message' => 'Settings saved']);
+}
+
+// ==================== API KEYS ====================
+
+function handle_save_api_keys()
+{
+    header('Content-Type: application/json');
+    
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        return;
+    }
+    
+    $userId = $_SESSION['user_id'];
+    $vtKey = $_POST['virustotal'] ?? '';
+    $hybridKey = $_POST['hybrid'] ?? '';
+    
+    // Save API keys as settings
+    if (!empty($vtKey)) {
+        $sql = "INSERT INTO system_settings (user_id, setting_key, setting_value) 
+                VALUES (?, 'virustotal_api_key', ?) 
+                ON DUPLICATE KEY UPDATE setting_value = ?";
+        mysqli_prepared_query($sql, 'iss', [$userId, $vtKey, $vtKey]);
+    }
+    
+    if (!empty($hybridKey)) {
+        $sql = "INSERT INTO system_settings (user_id, setting_key, setting_value) 
+                VALUES (?, 'hybrid_api_key', ?) 
+                ON DUPLICATE KEY UPDATE setting_value = ?";
+        mysqli_prepared_query($sql, 'iss', [$userId, $hybridKey, $hybridKey]);
+    }
+    
+    echo json_encode(['success' => true, 'message' => 'API keys saved successfully']);
+}
+
+// ==================== DATA MANAGEMENT ====================
+
+function handle_clear_all_logs()
+{
+    header('Content-Type: application/json');
+    
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        return;
+    }
+    
+    $projectDir = rtrim(DIR, '/\\');
+    $dataDir = $projectDir . '/assets/data/';
+    
+    $logFiles = [
+        'traffic_log.json',
+        'alerts.json',
+        'ransomware_activity.json',
+        'ransomware_threats.json',
+        'ransomware_stats.json',
+        'malware_reports.json',
+        'malware_stats.json',
+        'scan_results.json',
+        'scan_queue.json'
+    ];
+    
+    foreach ($logFiles as $file) {
+        $filePath = $dataDir . $file;
+        if (file_exists($filePath)) {
+            file_put_contents($filePath, json_encode([], JSON_PRETTY_PRINT));
+        }
+    }
+    
+    echo json_encode(['success' => true, 'message' => 'All logs cleared successfully']);
+}
+
+function handle_export_user_data()
+{
+    header('Content-Type: application/json');
+    
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        return;
+    }
+    
+    $userId = $_SESSION['user_id'];
+    
+    // Get user data
+    $userSql = "SELECT name, email, role FROM users WHERE id = ?";
+    $userData = mysqli_prepared_query($userSql, 'i', [$userId]);
+    
+    // Get user settings
+    $settingsSql = "SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?";
+    $settingsData = mysqli_prepared_query($settingsSql, 'i', [$userId]);
+    
+    $exportData = [
+        'export_date' => date('Y-m-d H:i:s'),
+        'user' => $userData[0] ?? [],
+        'settings' => $settingsData ?? [],
+        'statistics' => get_user_statistics_data($userId)
+    ];
+    
+    echo json_encode([
+        'success' => true,
+        'data' => $exportData
+    ]);
+}
+
+// ==================== SESSION MANAGEMENT ====================
+
+function handle_terminate_sessions()
+{
+    header('Content-Type: application/json');
+    
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        return;
+    }
+    
+    $userId = $_SESSION['user_id'];
+    
+    // Get user email
+    $userSql = "SELECT email FROM users WHERE id = ?";
+    $userData = mysqli_prepared_query($userSql, 'i', [$userId]);
+    
+    if (empty($userData)) {
+        echo json_encode(['success' => false, 'message' => 'User not found']);
+        return;
+    }
+    
+    $email = $userData[0]['email'];
+    
+    // Delete all sessions for this user
+    $deleteSql = "DELETE FROM user_sessions WHERE email = ?";
+    mysqli_prepared_query($deleteSql, 's', [$email]);
+    
+    echo json_encode(['success' => true, 'message' => 'All sessions terminated']);
+}
+
+// ==================== ACCOUNT DELETION ====================
+
+function handle_delete_account()
+{
+    header('Content-Type: application/json');
+    
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        return;
+    }
+    
+    $userId = $_SESSION['user_id'];
+    
+    try {
+        // Delete user settings
+        mysqli_prepared_query("DELETE FROM system_settings WHERE user_id = ?", 'i', [$userId]);
+        
+        // Delete user sessions
+        $userSql = "SELECT email FROM users WHERE id = ?";
+        $userData = mysqli_prepared_query($userSql, 'i', [$userId]);
+        
+        if (!empty($userData)) {
+            mysqli_prepared_query("DELETE FROM user_sessions WHERE email = ?", 's', [$userData[0]['email']]);
+        }
+        
+        // Delete user account
+        mysqli_prepared_query("DELETE FROM users WHERE id = ?", 'i', [$userId]);
+        
+        // Destroy session
+        session_destroy();
+        
+        echo json_encode(['success' => true, 'message' => 'Account deleted successfully']);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Failed to delete account']);
+    }
+}
+
+// ==================== USER STATISTICS ====================
+
+function handle_get_user_stats()
+{
+    header('Content-Type: application/json');
+    
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        return;
+    }
+    
+    $userId = $_SESSION['user_id'];
+    $stats = get_user_statistics_data($userId);
+    
+    echo json_encode($stats);
+}
+
+function get_user_statistics_data($userId)
+{
+    // Calculate days active
+    $userSql = "SELECT DATEDIFF(NOW(), created_at) as days_active FROM users WHERE id = ?";
+    $userData = mysqli_prepared_query($userSql, 'i', [$userId]);
+    $daysActive = $userData[0]['days_active'] ?? 0;
+    
+    // Get statistics from various sources
+    $projectDir = rtrim(DIR, '/\\');
+    
+    // Count malware scans
+    $malwareReports = $projectDir . '/assets/data/malware_reports.json';
+    $totalScans = 0;
+    if (file_exists($malwareReports)) {
+        $data = json_decode(file_get_contents($malwareReports), true);
+        $totalScans = is_array($data) ? count($data) : 0;
+    }
+    
+    // Count alerts
+    $alertsFile = $projectDir . '/assets/data/alerts.json';
+    $totalAlerts = 0;
+    if (file_exists($alertsFile)) {
+        $data = json_decode(file_get_contents($alertsFile), true);
+        $totalAlerts = is_array($data) ? count($data) : 0;
+    }
+    
+    // Count quarantined files
+    $quarantineFile = $projectDir . '/assets/data/quarantine.json';
+    $quarantinedFiles = 0;
+    if (file_exists($quarantineFile)) {
+        $data = json_decode(file_get_contents($quarantineFile), true);
+        $quarantinedFiles = is_array($data) ? count($data) : 0;
+    }
+    
+    return [
+        'total_scans' => $totalScans,
+        'total_alerts' => $totalAlerts,
+        'quarantined_files' => $quarantinedFiles,
+        'days_active' => max(1, $daysActive) // At least 1 day
+    ];
+}
+
 ?>

@@ -69,7 +69,54 @@ $dispatcher = FastRoute\simpleDispatcher(function (RouteCollector $r) {
     $r->addRoute('POST', MDIR . 'export-malware-report', checkSession('user_id', 'export_malware_report'));
     // $r->addRoute('POST', MDIR . 'start-behavioral-analysis', checkSession('user_id', 'start_behavioral_analysis'));
 
+
+    
+
 // REMOVED: scan-path endpoint
+
+
+        $r->addRoute('GET', MDIR . 'reporting', checkSession('user_id', 'get_reporting_page'));
+$r->addRoute('GET', MDIR . 'get-reporting-data', checkSession('user_id', 'get_reporting_data'));
+$r->addRoute('GET', MDIR . 'generate-executive-summary', checkSession('user_id', 'generate_executive_summary'));
+$r->addRoute('GET', MDIR . 'get-network-statistics', checkSession('user_id', 'get_network_statistics'));
+$r->addRoute('GET', MDIR . 'get-threat-timeline', checkSession('user_id', 'get_threat_timeline'));
+$r->addRoute('POST', MDIR . 'export-report-pdf', checkSession('user_id', 'export_report_pdf'));
+
+
+// Profile Management Routes
+    $r->addRoute('GET', MDIR . 'profile', checkSession('user_id', 'get_profile_page'));
+    $r->addRoute('POST', MDIR . 'update-profile', checkSession('user_id', 'update_profile'));
+    $r->addRoute('POST', MDIR . 'upload-profile-picture', checkSession('user_id', 'upload_profile_picture'));
+    $r->addRoute('POST', MDIR . 'delete-profile-picture', checkSession('user_id', 'delete_profile_picture'));
+    $r->addRoute('POST', MDIR . 'change-password', checkSession('user_id', 'change_password'));
+
+
+
+
+    // ==================== SETTINGS MODULE ROUTES ====================
+
+// Settings page
+$r->addRoute('GET', MDIR . 'settings', checkSession('user_id', 'get_settings_page'));
+
+// Password management
+$r->addRoute('POST', MDIR . 'update-password', checkSession('user_id', 'handle_update_password'));
+
+// System settings
+$r->addRoute('POST', MDIR . 'save-settings', checkSession('user_id', 'handle_save_settings'));
+$r->addRoute('POST', MDIR . 'save-api-keys', checkSession('user_id', 'handle_save_api_keys'));
+
+// Data management
+$r->addRoute('POST', MDIR . 'clear-all-logs', checkSession('user_id', 'handle_clear_all_logs'));
+$r->addRoute('POST', MDIR . 'export-user-data', checkSession('user_id', 'handle_export_user_data'));
+
+// Session management
+$r->addRoute('POST', MDIR . 'terminate-sessions', checkSession('user_id', 'handle_terminate_sessions'));
+
+// Account management
+$r->addRoute('POST', MDIR . 'delete-account', checkSession('user_id', 'handle_delete_account'));
+
+// Statistics
+$r->addRoute('GET', MDIR . 'get-user-stats', checkSession('user_id', 'handle_get_user_stats'));
 
     /**
      * GDPR Routes

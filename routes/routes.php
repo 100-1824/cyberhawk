@@ -24,6 +24,13 @@ $dispatcher = FastRoute\simpleDispatcher(function (RouteCollector $r) {
     $r->addRoute('GET', MDIR . 'logout', 'logout_user');
     $r->addRoute('GET', MDIR . 'clearlogs', 'clear_traffic_logs');
 
+
+
+$r->addRoute('POST', MDIR . 'verify-email', 'handle_verification');
+$r->addRoute('GET', MDIR . 'verify', 'get_verify_page');
+
+
+
     $r->addRoute('POST', MDIR . 'start-logs', 'startLogsHandler');
     $r->addRoute('POST', MDIR . 'start-model', 'startModelHandler');
     $r->addRoute('POST', MDIR . 'stop-logs', 'stopLogsHandler');

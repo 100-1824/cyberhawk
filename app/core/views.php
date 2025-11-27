@@ -2199,4 +2199,8 @@ function get_user_statistics_data($userId)
     ];
 }
 
+function get_verify_page()
+{
+    require 'app/views/pages/verify.php';
+}
 ?>

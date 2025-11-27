@@ -350,8 +350,9 @@ function handle_login() {
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = "Invalid email format.";
     } else {
-        $sql = "SELECT id, name, email, password, role FROM users WHERE email = ?";
+        $sql = "SELECT id, name, email, password, role, is_verified FROM users WHERE email = ?";
         $stmt = mysqli_prepared_query($sql, 's', [$email]);
+
 
         if ($stmt === false) {
             $error = "Database error. Please try again.";
@@ -360,7 +361,13 @@ function handle_login() {
         } else {
             $user = $stmt[0];
 
-            if (password_verify($password, $user['password'])) {
+            if ($user['is_verified'] == 0) {
+    $error = "Your account is not verified. Check your email.";
+    return require 'app/views/pages/login.php';
+}
+
+if (password_verify($password, $user['password'])) {
+
                 // Regenerate session ID for security
                 session_regenerate_id(true);
                 
@@ -458,11 +465,67 @@ function clear_all_logs() {
 
 // Place this in your handler file, e.g., src/AuthHandlers.php
 
+// function handle_Register() {
+//     // Ensure session is started
+//     if (session_status() === PHP_SESSION_NONE) {
+//         session_start();
+//     }
+
+//     $error = null;
+
+//     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+//         http_response_code(405);
+//         echo "Method Not Allowed";
+//         exit;
+//     }
+
+//     $name = trim($_POST['name'] ?? '');
+//     $email = trim($_POST['email'] ?? '');
+//     $password = $_POST['password'] ?? '';
+//     $role = 'user'; // default role
+
+//     if (!$name || !$email || !$password) {
+//         $error = "All fields are required.";
+//     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+//         $error = "Invalid email format.";
+//     } elseif (strlen($password) < 6) {
+//         $error = "Password must be at least 6 characters.";
+//     } else {
+//         // Check if email already exists
+//         $rows = mysqli_prepared_query("SELECT id FROM users WHERE email = ?", 's', [$email]);
+
+//         if ($rows === false) {
+//             $error = "Database error. Please try again.";
+//         } elseif (count($rows) > 0) {
+//             $error = "Email already registered.";
+//         } else {
+//             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+
+//             // Insert new user
+//             $inserted = mysqli_prepared_query(
+//                 "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
+//                 'ssss',
+//                 [$name, $email, $hashedPassword, $role]
+//             );
+
+//             if ($inserted) {
+//                 $_SESSION['success'] = "Registration successful! Please login.";
+//                 // Redirect to login page using MDIR
+//                 header("Location: " . MDIR . "login");
+//                 exit;
+//             } else {
+//                 $error = "Failed to register. Please try again.";
+//             }
+//         }
+//     }
+
+//     // Render the registration form with error messages
+//     get_register_view($error);
+// }
+
 function handle_Register() {
-    // Ensure session is started
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
+
+    if (session_status() === PHP_SESSION_NONE) session_start();
 
     $error = null;
 
@@ -475,45 +538,99 @@ function handle_Register() {
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
-    $role = 'user'; // default role
+    $role = 'user';
 
     if (!$name || !$email || !$password) {
-        $error = "All fields are required.";
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = "Invalid email format.";
-    } elseif (strlen($password) < 6) {
-        $error = "Password must be at least 6 characters.";
-    } else {
-        // Check if email already exists
-        $rows = mysqli_prepared_query("SELECT id FROM users WHERE email = ?", 's', [$email]);
-
-        if ($rows === false) {
-            $error = "Database error. Please try again.";
-        } elseif (count($rows) > 0) {
-            $error = "Email already registered.";
-        } else {
-            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-
-            // Insert new user
-            $inserted = mysqli_prepared_query(
-                "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
-                'ssss',
-                [$name, $email, $hashedPassword, $role]
-            );
-
-            if ($inserted) {
-                $_SESSION['success'] = "Registration successful! Please login.";
-                // Redirect to login page using MDIR
-                header("Location: " . MDIR . "login");
-                exit;
-            } else {
-                $error = "Failed to register. Please try again.";
-            }
-        }
+        return get_register_view("All fields are required.");
     }
 
-    // Render the registration form with error messages
-    get_register_view($error);
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return get_register_view("Invalid email format.");
+    }
+
+    if (strlen($password) < 6) {
+        return get_register_view("Password must be at least 6 characters.");
+    }
+
+    // Check existing email
+    $rows = mysqli_prepared_query("SELECT id FROM users WHERE email = ?", 's', [$email]);
+
+    if ($rows && count($rows) > 0) {
+        return get_register_view("Email already registered.");
+    }
+
+    // Generate verification code
+    $verification_code = random_int(100000, 999999);
+
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+
+    // Insert user with is_verified = 0
+    $inserted = mysqli_prepared_query(
+        "INSERT INTO users (name, email, password, role, verification_code, is_verified) 
+         VALUES (?, ?, ?, ?, ?, 0)",
+        'sssss',
+        [$name, $email, $hashedPassword, $role, $verification_code]
+    );
+
+    if (!$inserted) {
+        return get_register_view("Failed to register. Try again.");
+    }
+
+    // Send verification email
+    require_once DIR . "app/helpers/email.php";
+
+    if (!sendVerificationEmail($email, $name, $verification_code)) {
+        return get_register_view("Could not send verification email. Contact admin.");
+    }
+
+    // Store email in session for verification page
+    $_SESSION['pending_email'] = $email;
+
+    header("Location: " . MDIR . "verify");
+    exit;
+}
+function handle_verification() {
+    if (session_status() === PHP_SESSION_NONE) session_start();
+
+    if (!isset($_SESSION['pending_email'])) {
+        echo "Unauthorized!";
+        exit;
+    }
+
+    $email = $_SESSION['pending_email'];
+    $code = trim($_POST['code'] ?? '');
+
+    if (!$code) {
+        return get_verify_page("Enter the code.");
+    }
+
+    $row = mysqli_prepared_query(
+        "SELECT id, verification_code FROM users WHERE email = ?",
+        's',
+        [$email]
+    );
+
+    if (!$row || count($row) === 0) {
+        return get_verify_page("Account not found.");
+    }
+
+    $user = $row[0];
+
+    if ($user['verification_code'] != $code) {
+        return get_verify_page("Invalid verification code.");
+    }
+
+    mysqli_prepared_query(
+        "UPDATE users SET is_verified = 1, verification_code = NULL WHERE email = ?",
+        's',
+        [$email]
+    );
+
+    unset($_SESSION['pending_email']);
+    $_SESSION['success'] = "Your email is verified! You can now login.";
+
+    header("Location: " . MDIR . "login");
+    exit;
 }
 
 

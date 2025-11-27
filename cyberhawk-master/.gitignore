@@ -1,0 +1,43 @@
+# Composer
+/vendor/
+composer.lock
+
+# Python virtual environment
+fyp/
+venv/
+env/
+__pycache__/
+*.pyc
+
+# Logs & JSON data
+assets/data/*.json
+
+# Datasets
+assets/dataset/
+
+# Generated / uploaded files
+assets/data/exports/
+assets/data/malware_uploads/
+assets/data/quarantine_files/
+
+# ML models & training artifacts
+assets/model/*
+python/**/model*.pkl
+python/**/training_history*
+
+# Traffic logs
+traffic_log.json
+assets/data/traffic_log.json
+
+# IDE & editor
+.vscode/
+.idea/
+
+# OS junk
+Thumbs.db
+.DS_Store
+
+# Temp files
+*.log
+*.tmp
+*.bak

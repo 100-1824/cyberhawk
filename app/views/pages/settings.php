@@ -30,7 +30,7 @@ $settingsSql = "SELECT setting_key, setting_value FROM system_settings WHERE use
 $settingsData = mysqli_prepared_query($settingsSql, 'i', [$userId]);
 
 $settings = [
-    'alert_threshold' => 0.85,
+    'alert_threshold' => 0.90,
     'session_timeout' => 30,
     'enable_email_alerts' => false,
     'enable_desktop_alerts' => true,

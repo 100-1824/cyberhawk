@@ -11,6 +11,8 @@
  * @return callable The middleware function that checks the session and calls the handler.
  */
 //Calling The DB Class
+use PHPMailer\PHPMailer\PHPMailer;
+    use PHPMailer\PHPMailer\Exception;
 $oConnection = new dbConnection();
 
 
@@ -630,6 +632,535 @@ function handle_verification() {
     $_SESSION['success'] = "Your email is verified! You can now login.";
 
     header("Location: " . MDIR . "login");
+    exit;
+}
+
+
+// ==================== PROFILE MANAGEMENT ====================
+// Profile update removed - already exists in codebase
+
+// ==================== PASSWORD MANAGEMENT ====================
+
+function handle_update_password() {
+
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    header('Content-Type: application/json');
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        echo json_encode(['success' => false, 'message' => 'Invalid request method']);
+        exit;
+    }
+
+    $userId          = $_SESSION['user_id'];
+    $currentPassword = $_POST['current_password'] ?? '';
+    $newPassword     = $_POST['new_password'] ?? '';
+    $confirmPassword = $_POST['confirm_password'] ?? '';
+
+    // Validation
+    if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
+        echo json_encode(['success' => false, 'message' => 'All fields are required']);
+        exit;
+    }
+
+    if ($newPassword !== $confirmPassword) {
+        echo json_encode(['success' => false, 'message' => 'New passwords do not match']);
+        exit;
+    }
+
+    if (strlen($newPassword) < 8) {
+        echo json_encode(['success' => false, 'message' => 'Password must be at least 8 characters']);
+        exit;
+    }
+
+    // Verify current password
+    $sql = "SELECT password FROM users WHERE id = ?";
+    $result = mysqli_prepared_query($sql, 'i', [$userId]);
+
+    if (!$result || count($result) === 0) {
+        echo json_encode(['success' => false, 'message' => 'User not found']);
+        exit;
+    }
+
+    if (!password_verify($currentPassword, $result[0]['password'])) {
+        echo json_encode(['success' => false, 'message' => 'Current password is incorrect']);
+        exit;
+    }
+
+    // Update password
+    $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+
+    $updateSql = "UPDATE users SET password = ? WHERE id = ?";
+    mysqli_prepared_query($updateSql, 'si', [$hashedPassword, $userId]);
+
+    echo json_encode(['success' => true, 'message' => 'Password updated successfully']);
+    exit;
+}
+
+// ==================== SYSTEM SETTINGS ====================
+
+function handle_save_settings() {
+
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    header('Content-Type: application/json');
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        echo json_encode(['success' => false, 'message' => 'Invalid request method']);
+        exit;
+    }
+
+    $userId   = $_SESSION['user_id'];
+    $settings = $_POST['settings'] ?? [];
+
+    if (empty($settings)) {
+        echo json_encode(['success' => false, 'message' => 'No settings provided']);
+        exit;
+    }
+
+    // Update or insert each setting
+    foreach ($settings as $key => $value) {
+
+        $checkSql = "SELECT id FROM system_settings WHERE user_id = ? AND setting_key = ?";
+        $existing = mysqli_prepared_query($checkSql, 'is', [$userId, $key]);
+
+        if ($existing && count($existing) > 0) {
+
+            $updateSql = "UPDATE system_settings SET setting_value = ? WHERE user_id = ? AND setting_key = ?";
+            mysqli_prepared_query($updateSql, 'sis', [$value, $userId, $key]);
+
+        } else {
+
+            $insertSql = "INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?)";
+            mysqli_prepared_query($insertSql, 'iss', [$userId, $key, $value]);
+        }
+    }
+
+    echo json_encode(['success' => true, 'message' => 'Settings saved successfully']);
+    exit;
+}
+
+// ==================== API KEYS ====================
+
+function handle_save_api_keys() {
+
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    header('Content-Type: application/json');
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        echo json_encode(['success' => false, 'message' => 'Invalid request method']);
+        exit;
+    }
+
+    $userId            = $_SESSION['user_id'];
+    $virusTotalKey     = $_POST['virustotal_api_key'] ?? '';
+    $hybridAnalysisKey = $_POST['hybrid_analysis_key'] ?? '';
+
+    // Save VirusTotal API key
+    if (!empty($virusTotalKey)) {
+
+        $checkSql = "SELECT id FROM system_settings WHERE user_id = ? AND setting_key = 'virustotal_api_key'";
+        $existing = mysqli_prepared_query($checkSql, 'i', [$userId]);
+
+        if ($existing && count($existing) > 0) {
+
+            $updateSql = "UPDATE system_settings SET setting_value = ? WHERE user_id = ? AND setting_key = 'virustotal_api_key'";
+            mysqli_prepared_query($updateSql, 'si', [$virusTotalKey, $userId]);
+
+        } else {
+
+            $insertSql = "INSERT INTO system_settings (user_id, setting_key, setting_value)
+                          VALUES (?, 'virustotal_api_key', ?)";
+            mysqli_prepared_query($insertSql, 'is', [$userId, $virusTotalKey]);
+        }
+    }
+
+    // Save Hybrid Analysis API key
+    if (!empty($hybridAnalysisKey)) {
+
+        $checkSql = "SELECT id FROM system_settings WHERE user_id = ? AND setting_key = 'hybrid_analysis_key'";
+        $existing = mysqli_prepared_query($checkSql, 'i', [$userId]);
+
+        if ($existing && count($existing) > 0) {
+
+            $updateSql = "UPDATE system_settings SET setting_value = ? WHERE user_id = ? AND setting_key = 'hybrid_analysis_key'";
+            mysqli_prepared_query($updateSql, 'si', [$hybridAnalysisKey, $userId]);
+
+        } else {
+
+            $insertSql = "INSERT INTO system_settings (user_id, setting_key, setting_value)
+                          VALUES (?, 'hybrid_analysis_key', ?)";
+            mysqli_prepared_query($insertSql, 'is', [$userId, $hybridAnalysisKey]);
+        }
+    }
+
+    echo json_encode(['success' => true, 'message' => 'API keys saved successfully']);
+    exit;
+}
+
+// ==================== DATA MANAGEMENT ====================
+
+function handle_clear_all_logs()
+{
+    header('Content-Type: application/json');
+    
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        return;
+    }
+    
+    $projectDir = rtrim(DIR, '/\\');
+    $dataDir = $projectDir . '/assets/data/';
+    
+    $logFiles = [
+        'traffic_log.json',
+        'alerts.json',
+        'ransomware_activity.json',
+        'ransomware_threats.json',
+        'ransomware_stats.json',
+        'malware_reports.json',
+        'malware_stats.json',
+        'scan_results.json',
+        'scan_queue.json'
+    ];
+    
+    foreach ($logFiles as $file) {
+        $filePath = $dataDir . $file;
+        if (file_exists($filePath)) {
+            file_put_contents($filePath, json_encode([], JSON_PRETTY_PRINT));
+        }
+    }
+    
+    echo json_encode(['success' => true, 'message' => 'All logs cleared successfully']);
+}
+
+function handle_export_user_data() {
+
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    header('Content-Type: application/json');
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        echo json_encode(['success' => false, 'message' => 'Invalid request method']);
+        exit;
+    }
+
+    $userId = $_SESSION['user_id'];
+
+    // User data
+    $userSql = "SELECT id, name, email, role FROM users WHERE id = ?";
+    $userData = mysqli_prepared_query($userSql, 'i', [$userId]);
+
+    // User settings
+    $settingsSql = "SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?";
+    $settingsData = mysqli_prepared_query($settingsSql, 'i', [$userId]);
+
+    $exportData = [
+        'user'        => $userData[0] ?? null,
+        'settings'    => $settingsData ?? [],
+        'export_date' => date('Y-m-d H:i:s')
+    ];
+
+    // Create directory
+    $exportDir = DIR . 'assets/exports/';
+    if (!file_exists($exportDir)) {
+        mkdir($exportDir, 0755, true);
+    }
+
+    $filename = 'user_data_' . $userId . '_' . date('YmdHis') . '.json';
+    $filepath = $exportDir . $filename;
+
+    file_put_contents($filepath, json_encode($exportData, JSON_PRETTY_PRINT));
+
+    echo json_encode([
+        'success'      => true,
+        'message'      => 'User data exported successfully',
+        'download_url' => MDIR . 'assets/exports/' . $filename
+    ]);
+    exit;
+}
+
+// ==================== SESSION MANAGEMENT ====================
+
+function handle_terminate_sessions() {
+
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    header('Content-Type: application/json');
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        echo json_encode(['success' => false, 'message' => 'Invalid request method']);
+        exit;
+    }
+
+    $userId = $_SESSION['user_id'];
+    $currentSessionId = session_id();
+
+    $deleteSql = "DELETE FROM user_sessions WHERE user_id = ? AND session_id != ?";
+    mysqli_prepared_query($deleteSql, 'is', [$userId, $currentSessionId]);
+
+    echo json_encode(['success' => true, 'message' => 'All other sessions terminated']);
+    exit;
+}
+
+
+// ==================== ACCOUNT DELETION ====================
+
+function handle_delete_account()
+{
+    header('Content-Type: application/json');
+    
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        return;
+    }
+    
+    $userId = $_SESSION['user_id'];
+    
+    try {
+        // Delete user settings
+        mysqli_prepared_query("DELETE FROM system_settings WHERE user_id = ?", 'i', [$userId]);
+        
+        // Delete user sessions
+        $userSql = "SELECT email FROM users WHERE id = ?";
+        $userData = mysqli_prepared_query($userSql, 'i', [$userId]);
+        
+        if (!empty($userData)) {
+            mysqli_prepared_query("DELETE FROM user_sessions WHERE email = ?", 's', [$userData[0]['email']]);
+        }
+        
+        // Delete user account
+        mysqli_prepared_query("DELETE FROM users WHERE id = ?", 'i', [$userId]);
+        
+        // Destroy session
+        session_destroy();
+        
+        echo json_encode(['success' => true, 'message' => 'Account deleted successfully']);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Failed to delete account']);
+    }
+}
+
+// ==================== USER STATISTICS ====================
+
+function handle_get_user_stats()
+{
+    header('Content-Type: application/json');
+    
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        return;
+    }
+    
+    $userId = $_SESSION['user_id'];
+    $stats = get_user_statistics_data($userId);
+    
+    echo json_encode($stats);
+}
+
+function get_user_statistics_data($userId)
+{
+    // Calculate days active
+    $userSql = "SELECT DATEDIFF(NOW(), created_at) as days_active FROM users WHERE id = ?";
+    $userData = mysqli_prepared_query($userSql, 'i', [$userId]);
+    $daysActive = $userData[0]['days_active'] ?? 0;
+    
+    // Get statistics from various sources
+    $projectDir = rtrim(DIR, '/\\');
+    
+    // Count malware scans
+    $malwareReports = $projectDir . '/assets/data/malware_reports.json';
+    $totalScans = 0;
+    if (file_exists($malwareReports)) {
+        $data = json_decode(file_get_contents($malwareReports), true);
+        $totalScans = is_array($data) ? count($data) : 0;
+    }
+    
+    // Count alerts
+    $alertsFile = $projectDir . '/assets/data/alerts.json';
+    $totalAlerts = 0;
+    if (file_exists($alertsFile)) {
+        $data = json_decode(file_get_contents($alertsFile), true);
+        $totalAlerts = is_array($data) ? count($data) : 0;
+    }
+    
+    // Count quarantined files
+    $quarantineFile = $projectDir . '/assets/data/quarantine.json';
+    $quarantinedFiles = 0;
+    if (file_exists($quarantineFile)) {
+        $data = json_decode(file_get_contents($quarantineFile), true);
+        $quarantinedFiles = is_array($data) ? count($data) : 0;
+    }
+    
+    return [
+        'total_scans' => $totalScans,
+        'total_alerts' => $totalAlerts,
+        'quarantined_files' => $quarantinedFiles,
+        'days_active' => max(1, $daysActive) // At least 1 day
+    ];
+}
+
+
+
+
+
+
+
+
+
+
+// Reporting functions can be added here
+// ==================== REPORTING MODULE HANDLERS ====================
+
+/**
+ * Handle downloading report as PDF
+ */
+function handle_download_report()
+{
+    if (session_status() === PHP_SESSION_NONE) session_start();
+
+    header('Content-Type: application/json');
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        echo json_encode(['success' => false, 'message' => 'Invalid request method']);
+        exit;
+    }
+
+    $reportType = $_POST['report_type'] ?? '';
+    $reportData = $_POST['report_data'] ?? '';
+
+    if (empty($reportType) || empty($reportData)) {
+        echo json_encode(['success' => false, 'message' => 'Report type and data are required']);
+        exit;
+    }
+
+    // Create reports directory if it doesn't exist
+    $reportsDir = DIR . 'assets/reports/';
+    if (!file_exists($reportsDir)) {
+        mkdir($reportsDir, 0755, true);
+    }
+
+    $filename = 'cyberhawk_' . $reportType . '_report_' . date('YmdHis') . '.html';
+    $filepath = $reportsDir . $filename;
+
+    // Save report HTML
+    file_put_contents($filepath, $reportData);
+
+    echo json_encode([
+        'success'      => true,
+        'message'      => 'Report generated successfully',
+        'download_url' => MDIR . 'assets/reports/' . $filename,
+        'filename'     => $filename
+    ]);
+    exit;
+}
+
+/**
+ * Handle emailing report
+ */
+function handle_email_report()
+{
+    if (session_status() === PHP_SESSION_NONE) session_start();
+
+    header('Content-Type: application/json');
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        echo json_encode(['success' => false, 'message' => 'Invalid request method']);
+        exit;
+    }
+
+    $userId        = $_SESSION['user_id'];
+    $recipientEmail = $_POST['email'] ?? '';
+    $reportType     = $_POST['report_type'] ?? '';
+    $reportData     = $_POST['report_data'] ?? '';
+
+    // Validation
+    if (empty($recipientEmail)) {
+        echo json_encode(['success' => false, 'message' => 'Email address is required']);
+        exit;
+    }
+
+    if (!filter_var($recipientEmail, FILTER_VALIDATE_EMAIL)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid email address']);
+        exit;
+    }
+
+    if (empty($reportType) || empty($reportData)) {
+        echo json_encode(['success' => false, 'message' => 'Report type and data are required']);
+        exit;
+    }
+
+    // Get user info
+    $userSql  = "SELECT name, email FROM users WHERE id = ?";
+    $userData = mysqli_prepared_query($userSql, 'i', [$userId]);
+    $userName = $userData[0]['name'] ?? 'CyberHawk User';
+
+    // Load PHPMailer
+    require_once DIR . "app/helpers/email.php";
+    require_once DIR . 'vendor/phpmailer/phpmailer/src/PHPMailer.php';
+    require_once DIR . 'vendor/phpmailer/phpmailer/src/SMTP.php';
+    require_once DIR . 'vendor/phpmailer/phpmailer/src/Exception.php';
+
+    
+
+    try {
+        $mail = new PHPMailer(true);
+
+        // SMTP Configuration
+        $mail->isSMTP();
+        $mail->Host       = 'smtp.gmail.com';
+        $mail->SMTPAuth   = true;
+        $mail->Username   = 'ahmedsahni71@gmail.com';
+        $mail->Password   = 'oolg ltfj vpux ctft';
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port       = 587;
+
+        // Email settings
+        $mail->setFrom('ahmedsahni71@gmail.com', 'CyberHawk Security');
+        $mail->addAddress($recipientEmail);
+
+        $reportTypeFormatted = ucfirst(str_replace('_', ' ', $reportType));
+        $mail->Subject = "CyberHawk {$reportTypeFormatted} Report - " . date('Y-m-d H:i:s');
+        $mail->isHTML(true);
+
+        // Email body
+        $mail->Body = "
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; }
+                .header { background: linear-gradient(135deg, #0a74da, #061a40); color: white; padding: 20px; text-align: center; }
+                .content { padding: 20px; }
+                .footer { background: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #6c757d; }
+            </style>
+        </head>
+        <body>
+            <div class='header'>
+                <h1>CyberHawk Security Report</h1>
+                <p>Generated on " . date('F d, Y at H:i:s') . "</p>
+            </div>
+            <div class='content'>
+                {$reportData}
+            </div>
+            <div class='footer'>
+                <p>This report was generated by CyberHawk Security Monitoring System</p>
+                <p>For support, contact your system administrator</p>
+            </div>
+        </body>
+        </html>
+        ";
+
+        $mail->send();
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Report sent successfully to ' . $recipientEmail
+        ]);
+
+    } catch (Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Failed to send email: ' . $mail->ErrorInfo
+        ]);
+    }
+
     exit;
 }
 

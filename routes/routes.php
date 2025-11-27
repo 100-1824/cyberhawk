@@ -97,6 +97,10 @@ $r->addRoute('POST', MDIR . 'export-report-pdf', checkSession('user_id', 'export
     $r->addRoute('POST', MDIR . 'delete-profile-picture', checkSession('user_id', 'delete_profile_picture'));
     $r->addRoute('POST', MDIR . 'change-password', checkSession('user_id', 'change_password'));
 
+    $r->addRoute('POST', MDIR . 'download-report', checkSession('user_id', 'handle_download_report'));
+
+$r->addRoute('POST', MDIR . 'email-report', checkSession('user_id', 'handle_email_report'));
+
 
 
 

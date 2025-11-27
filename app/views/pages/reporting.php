@@ -13,6 +13,7 @@ if (strpos($uri, $basePath) === 0) {
         $uri = '/';
     }
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1075,13 +1076,185 @@ if (strpos($uri, $basePath) === 0) {
                     <button class="btn export-btn btn-lg" onclick="window.print()">
                         <i class="bi bi-printer me-2"></i>Print Report
                     </button>
-                    <button class="btn btn-secondary btn-lg ms-2" onclick="location.reload()">
-                        <i class="bi bi-arrow-clockwise me-2"></i>New Report
-                    </button>
+
+<button class="btn export-btn btn-lg ms-2" onclick="downloadReportHTML()">
+    <i class="bi bi-download me-2"></i>Download HTML
+</button>
+
+<button class="btn export-btn btn-lg ms-2" onclick="showEmailModal()">
+    <i class="bi bi-envelope me-2"></i>Email Report
+</button>
+
+<button class="btn btn-secondary btn-lg ms-2" onclick="location.reload()">
+    <i class="bi bi-arrow-clockwise me-2"></i>New Report
+</button>
+
+</div>
+`;
+$('#reportContainer').append(printBtn);
+}
+
+// ==================== DOWNLOAD REPORT (HTML FILE) ====================
+function downloadReportHTML() {
+    const reportType = $('#reportType').val();
+    const reportContent = $('#reportContainer').html();
+
+    const fullHTML = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>CyberHawk Security Report</title>
+
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+            body { padding: 20px; font-family: Arial, sans-serif; }
+            .gradient-text { 
+                background: linear-gradient(135deg, #0a74da, #061a40); 
+                -webkit-background-clip: text; 
+                -webkit-text-fill-color: transparent; 
+                font-weight: bold; 
+            }
+            .stat-box { 
+                background: linear-gradient(135deg, rgba(10, 116, 218, 0.1), rgba(6, 26, 64, 0.1));
+                border-radius: 10px; 
+                padding: 20px; 
+                text-align: center; 
+                border: 2px solid #0a74da; 
+            }
+            .stat-number { font-size: 2.5rem; font-weight: bold; color: #0a74da; }
+            .severity-critical { color: #dc3545; font-weight: bold; }
+            .severity-high { color: #fd7e14; font-weight: bold; }
+            .severity-medium { color: #ffc107; font-weight: bold; }
+            .severity-low { color: #28a745; font-weight: bold; }
+            .no-print { display: none; }
+        </style>
+    </head>
+
+    <body>
+        <div class="container">
+            <div class="text-center mb-4">
+                <h1 class="gradient-text">CyberHawk Security Report</h1>
+                <p class="text-muted">Generated on ${new Date().toLocaleString()}</p>
+            </div>
+            ${reportContent}
+        </div>
+    </body>
+    </html>
+    `;
+
+    const blob = new Blob([fullHTML], { type: 'text/html' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = `cyberhawk_${reportType}_report_${Date.now()}.html`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    showNotification('Success', 'Report downloaded successfully', 'success');
+}
+
+// ==================== EMAIL REPORT (SHOW MODAL) ====================
+function showEmailModal() {
+    const modal = `
+        <div class="modal fade" id="emailReportModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+
+                    <div class="modal-header" style="background: linear-gradient(135deg, #0a74da, #061a40); color: white;">
+                        <h5 class="modal-title"><i class="bi bi-envelope me-2"></i>Email Report</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="emailRecipient" class="form-label">Recipient Email</label>
+                            <input type="email" class="form-control" id="emailRecipient" placeholder="Enter email address" required>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            The report will be sent as an HTML email to the specified address.
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn export-btn" onclick="sendReportEmail()">
+                            <i class="bi bi-send me-2"></i>Send Email
+                        </button>
+                    </div>
+
                 </div>
-            `;
-            $('#reportContainer').append(printBtn);
+            </div>
+        </div>
+    `;
+
+    $('#emailReportModal').remove();
+    $('body').append(modal);
+
+    const emailModal = new bootstrap.Modal(document.getElementById('emailReportModal'));
+    emailModal.show();
+}
+
+// ==================== SEND REPORT EMAIL (AJAX) ====================
+function sendReportEmail() {
+    const recipientEmail = $('#emailRecipient').val();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!recipientEmail) {
+        showNotification('Error', 'Please enter a recipient email address', 'danger');
+        return;
+    }
+
+    if (!emailRegex.test(recipientEmail)) {
+        showNotification('Error', 'Please enter a valid email address', 'danger');
+        return;
+    }
+
+    const reportType = $('#reportType').val();
+    const reportContent = $('#reportContainer').clone().find('.no-print').remove().end().html();
+
+    $('#emailReportModal .modal-body').html(`
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Sending...</span>
+            </div>
+            <p class="mt-3 text-muted">Sending email to ${recipientEmail}...</p>
+        </div>
+    `);
+
+    $.ajax({
+        url: '<?= MDIR ?>email-report',
+        method: 'POST',
+        data: {
+            email: recipientEmail,
+            report_type: reportType,
+            report_data: reportContent
+        },
+
+        success: function(response) {
+            $('#emailReportModal').modal('hide');
+
+            if (response.success) {
+                showNotification('Success', response.message, 'success');
+            } else {
+                showNotification('Error', response.message, 'danger');
+            }
+        },
+
+        error: function() {
+            $('#emailReportModal').modal('hide');
+            showNotification('Error', 'Failed to send email. Please try again.', 'danger');
         }
+    });
+}
+
 
         // ==================== UI FUNCTIONS ====================
 
@@ -1129,5 +1302,6 @@ if (strpos($uri, $basePath) === 0) {
             }, 5000);
         }
     </script>
+    
 </body>
 </html>

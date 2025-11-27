@@ -58,7 +58,55 @@
 
   <!-- Right side -->
   <div class="header-right d-flex align-items-center gap-4 text-white">
-    <i class="bi bi-bell fs-5" title="Notifications" role="button" tabindex="0"></i>
+    <!-- Notifications Dropdown -->
+<div class="dropdown">
+
+    <button class="btn btn-link text-white position-relative p-0"
+            type="button"
+            id="notificationsDropdown"
+            data-bs-toggle="dropdown"
+            aria-expanded="false">
+
+        <i class="bi bi-bell fs-5" title="Notifications" role="button"></i>
+
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+              id="notificationBadge"
+              style="font-size: 0.6rem; display: none;">
+            0
+        </span>
+
+    </button>
+
+    <div class="dropdown-menu dropdown-menu-end p-0"
+         aria-labelledby="notificationsDropdown"
+         style="width: 350px; max-height: 500px; overflow-y: auto;">
+
+        <!-- Header -->
+        <div class="p-3" style="background: linear-gradient(135deg, #0a74da, #061a40);">
+            <h6 class="text-white mb-0">
+                <i class="bi bi-bell me-2"></i>Notifications
+            </h6>
+        </div>
+
+        <!-- Notifications List -->
+        <div id="notificationsList">
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-bell-slash" style="font-size: 2rem;"></i>
+                <p class="mb-0 mt-2">No new notifications</p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="border-top p-2 text-center">
+            <a href="#" class="text-decoration-none small" onclick="clearAllNotifications(); return false;">
+                <i class="bi bi-check-all me-1"></i>Clear All
+            </a>
+        </div>
+
+    </div>
+
+</div>
+
     <!-- <i class="bi bi-gear fs-5" title="Settings" role="button" tabindex="0"></i> -->
      <a href="<?= MDIR ?>settings" title="Settings">
     <i class="bi bi-gear fs-5" role="button" tabindex="0"></i>

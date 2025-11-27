@@ -23,7 +23,7 @@ CONFIG = {
     'MODEL_PATH': 'python/ranswomware/ransomware_model.pkl',
     'VIRUSTOTAL_API_KEY': '685fe9d7889aaddde1c019f7d2a4ebccc9032c2663112fdc95257a699b3d4f30',
     'USE_VIRUSTOTAL': True,
-    'USE_ML_MODEL': False                                                                                                                                                                                                                                                            ,
+    'USE_ML_MODEL': True,
     'SCAN_EXTENSIONS': [
         '.exe', '.dll', '.scr', '.bat', '.cmd', '.ps1', '.vbs',
         '.doc', '.docx', '.xls', '.xlsx', '.pdf', '.zip', '.rar',
@@ -337,44 +337,66 @@ class RansomwareScanner:
         return None
     
     def scan_file(self, filepath):
-        """Scan individual file with ML + VirusTotal"""
+        """Scan individual file with ML + VirusTotal (Dual-layer detection)"""
+
         self.scanned_files += 1
-        
+
         # Update progress MORE FREQUENTLY
         if self.scanned_files % 5 == 0 or self.scanned_files == 1:
             progress = int((self.scanned_files / max(self.total_files, 1)) * 100)
             self.update_progress(progress, filepath)
-        
+
         # Get file hash
         file_hash = self.get_file_hash(filepath)
         if not file_hash:
             return None
-        
+
+        # Check if file has suspicious extension
+        ext = Path(filepath).suffix.lower()
+        is_suspicious_extension = ext in CONFIG['SUSPICIOUS_EXTENSIONS']
+        is_executable = ext in ['.exe', '.dll', '.scr', '.bat', '.cmd', '.ps1']
+
         # STEP 1: ML Model Prediction (Fast, Offline)
         ml_result = None
         if CONFIG['USE_ML_MODEL'] and self.ml_model:
             ml_result = self.predict_with_ml(filepath)
-        
-        # STEP 2: VirusTotal Check (if ML detects threat)
+
+        # STEP 2: VirusTotal Check (Enhanced Logic)
+        # Now checks: (1) ML detects threat, OR (2) suspicious extension, OR (3) executable file
         vt_result = None
         threat_level = 'safe'
         detection_method = 'Clean'
-        
-        if ml_result and ml_result['prediction'] == 'RANSOMWARE':
-            # ML detected threat, verify with VirusTotal
-            if CONFIG['USE_VIRUSTOTAL']:
-                vt_result = self.check_virustotal(file_hash)
-                time.sleep(0.5)  # Rate limiting
-                
-                if vt_result and vt_result['malicious'] > 0:
-                    threat_level = 'critical'  # Both agree
-                    detection_method = 'ML + VirusTotal'
-                else:
-                    threat_level = 'warning'  # Only ML detected
-                    detection_method = 'ML Only'
-            else:
-                threat_level = 'warning'
-                detection_method = 'ML Only'
+
+        should_check_vt = (
+            (ml_result and ml_result['prediction'] == 'RANSOMWARE') or   # ML detected threat
+            is_suspicious_extension or                                   # Has ransomware-like extension
+            is_executable                                                # Is executable file
+        )
+
+        if should_check_vt and CONFIG['USE_VIRUSTOTAL']:
+            vt_result = self.check_virustotal(file_hash)
+            time.sleep(0.5)  # Rate limiting
+
+        # Determine threat level based on both detection methods
+        ml_detected = ml_result and ml_result['prediction'] == 'RANSOMWARE'
+        vt_detected = vt_result and vt_result['malicious'] > 0
+
+        if ml_detected and vt_detected:
+            threat_level = 'critical'         # Both ML and VirusTotal agree
+            detection_method = 'ML + VirusTotal'
+
+        elif ml_detected and not vt_detected:
+            threat_level = 'warning'          # Only ML detected
+            detection_method = 'ML Only'
+
+        elif not ml_detected and vt_detected:
+            threat_level = 'critical'         # Only VirusTotal detected
+            detection_method = 'VirusTotal'
+
+        elif is_suspicious_extension:
+            threat_level = 'warning'          # Suspicious extension but no detection
+            detection_method = 'Suspicious Extension'
+
         
         # Log threat if detected
         if threat_level in ['warning', 'critical']:

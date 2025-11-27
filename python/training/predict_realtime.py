@@ -54,7 +54,7 @@ class Config:
     # Prediction settings
     CHECK_INTERVAL = 2.0  # Check for new logs every 2 seconds
     BATCH_SIZE = 32  # Process logs in batches for efficiency
-    CONFIDENCE_THRESHOLD = 0.85  # Minimum confidence for attack detection (raised to reduce false positives)
+    CONFIDENCE_THRESHOLD = 0.90  # Minimum confidence for attack detection (raised to reduce false positives)
     
     # Alert settings
     MAX_ALERTS = 1000  # Maximum alerts to keep in alerts.json

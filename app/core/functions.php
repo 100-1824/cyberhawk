@@ -1023,6 +1023,7 @@ function handle_download_report()
         exit;
     }
 
+    $userId = $_SESSION['user_id'] ?? null;
     $reportType = $_POST['report_type'] ?? '';
     $reportData = $_POST['report_data'] ?? '';
 
@@ -1030,6 +1031,9 @@ function handle_download_report()
         echo json_encode(['success' => false, 'message' => 'Report type and data are required']);
         exit;
     }
+
+    // Load notifications helper
+    require_once DIR . "app/helpers/notifications.php";
 
     // Create reports directory if it doesn't exist
     $reportsDir = DIR . 'assets/reports/';
@@ -1042,6 +1046,21 @@ function handle_download_report()
 
     // Save report HTML
     file_put_contents($filepath, $reportData);
+
+    // Add notification
+    if ($userId) {
+        add_notification(
+            $userId,
+            'success',
+            'Report Downloaded',
+            "Report '{$filename}' generated successfully",
+            [
+                'report_type' => $reportType,
+                'filename' => $filename,
+                'action' => 'download_report'
+            ]
+        );
+    }
 
     echo json_encode([
         'success'      => true,
@@ -1092,13 +1111,14 @@ function handle_email_report()
     $userData = mysqli_prepared_query($userSql, 'i', [$userId]);
     $userName = $userData[0]['name'] ?? 'CyberHawk User';
 
-    // Load PHPMailer
+    // Load PHPMailer and Notifications
     require_once DIR . "app/helpers/email.php";
+    require_once DIR . "app/helpers/notifications.php";
     require_once DIR . 'vendor/phpmailer/phpmailer/src/PHPMailer.php';
     require_once DIR . 'vendor/phpmailer/phpmailer/src/SMTP.php';
     require_once DIR . 'vendor/phpmailer/phpmailer/src/Exception.php';
 
-    
+
 
     try {
         $mail = new PHPMailer(true);
@@ -1148,6 +1168,19 @@ function handle_email_report()
         ";
 
         $mail->send();
+
+        // Add notification
+        add_notification(
+            $userId,
+            'success',
+            'Report Sent Successfully',
+            "Report sent to {$recipientEmail}",
+            [
+                'report_type' => $reportType,
+                'recipient' => $recipientEmail,
+                'action' => 'email_report'
+            ]
+        );
 
         echo json_encode([
             'success' => true,
@@ -1743,8 +1776,9 @@ function get_threat_timeline()
 // ==================== UPLOAD & SCAN OPERATIONS ====================
 function upload_malware_sample()
 {
+    if (session_status() === PHP_SESSION_NONE) session_start();
     header('Content-Type: application/json');
-    
+
     if (!isset($_FILES['file'])) {
         echo json_encode([
             'success' => false,
@@ -1752,25 +1786,29 @@ function upload_malware_sample()
         ]);
         return;
     }
-    
+
+    $userId = $_SESSION['user_id'] ?? null;
     $projectDir = rtrim(DIR, '/\\');
     $uploadsDir = $projectDir . '/assets/data/malware_uploads';
-    
+
     if (!is_dir($uploadsDir)) {
         mkdir($uploadsDir, 0755, true);
     }
-    
+
+    // Load notifications helper
+    require_once DIR . "app/helpers/notifications.php";
+
     try {
         $file = $_FILES['file'];
         $filename = basename($file['name']);
         $fileId = md5($filename . time());
         $uploadPath = $uploadsDir . '/' . $fileId . '_' . $filename;
-        
+
         if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
             $queueFile = $projectDir . '/assets/data/scan_queue.json';
             $queueData = file_exists($queueFile) ? json_decode(file_get_contents($queueFile), true) : [];
             $queue = is_array($queueData) ? $queueData : [];
-            
+
             $queue[] = [
                 'id' => $fileId,
                 'filename' => $filename,
@@ -1779,9 +1817,25 @@ function upload_malware_sample()
                 'status' => 'pending',
                 'size' => $file['size']
             ];
-            
+
             file_put_contents($queueFile, json_encode($queue, JSON_PRETTY_PRINT));
-            
+
+            // Add notification
+            if ($userId) {
+                add_notification(
+                    $userId,
+                    'success',
+                    'Malware Sample Uploaded',
+                    "File '{$filename}' uploaded successfully and added to scan queue",
+                    [
+                        'file_id' => $fileId,
+                        'filename' => $filename,
+                        'size' => $file['size'],
+                        'action' => 'upload_malware'
+                    ]
+                );
+            }
+
             echo json_encode([
                 'success' => true,
                 'message' => 'File uploaded successfully',
@@ -1806,16 +1860,18 @@ function upload_malware_sample()
 
 function start_malware_scan()
 {
+    if (session_status() === PHP_SESSION_NONE) session_start();
     header('Content-Type: application/json');
 
+    $userId = $_SESSION['user_id'] ?? null;
     $input = $_POST;
     if (empty($input)) {
         $rawInput = file_get_contents('php://input');
         parse_str($rawInput, $input);
     }
-    
+
     $fileId = $input['file_id'] ?? $_POST['file_id'] ?? null;
-    
+
     if (!$fileId) {
         echo json_encode([
             'success' => false,
@@ -1823,11 +1879,11 @@ function start_malware_scan()
         ]);
         return;
     }
-    
+
     $projectDir = rtrim(DIR, '/\\');
     $pythonPath = $projectDir . '/fyp/Scripts/python.exe';
     $scannerScript = $projectDir . '/python/malware/malware_scanner.py';
-    
+
     if (!file_exists($scannerScript)) {
         echo json_encode([
             'success' => false,
@@ -1835,8 +1891,26 @@ function start_malware_scan()
         ]);
         return;
     }
-    
+
+    // Load notifications helper
+    require_once DIR . "app/helpers/notifications.php";
+
     try {
+        // Get filename from queue
+        $queueFile = $projectDir . '/assets/data/scan_queue.json';
+        $filename = 'Unknown file';
+        if (file_exists($queueFile)) {
+            $queueData = json_decode(file_get_contents($queueFile), true);
+            if (is_array($queueData)) {
+                foreach ($queueData as $item) {
+                    if ($item['id'] === $fileId) {
+                        $filename = $item['filename'];
+                        break;
+                    }
+                }
+            }
+        }
+
         $progressFile = $projectDir . '/assets/data/malware_scan_progress.json';
         file_put_contents($progressFile, json_encode([
             'file_id' => $fileId,
@@ -1844,11 +1918,27 @@ function start_malware_scan()
             'status' => 'Initializing scan...',
             'stage' => 'init'
         ], JSON_PRETTY_PRINT));
-        
+
         $cmd = "powershell -Command \"Start-Process -FilePath '$pythonPath' -ArgumentList '$scannerScript --file-id $fileId' -WindowStyle Hidden -PassThru | Select-Object -ExpandProperty Id\"";
         $pid = trim(shell_exec($cmd));
-        
+
         if (is_numeric($pid) && $pid > 0) {
+            // Add notification
+            if ($userId) {
+                add_notification(
+                    $userId,
+                    'info',
+                    'Malware Scan Started',
+                    "Analysis started for '{$filename}'",
+                    [
+                        'file_id' => $fileId,
+                        'filename' => $filename,
+                        'pid' => $pid,
+                        'action' => 'start_malware_scan'
+                    ]
+                );
+            }
+
             echo json_encode([
                 'success' => true,
                 'message' => 'Malware scan started',
@@ -2199,13 +2289,15 @@ function getDefaultMalwareStats()
 
 function start_ransomware_monitor()
 {
+    if (session_status() === PHP_SESSION_NONE) session_start();
     header('Content-Type: application/json');
-    
+
+    $userId = $_SESSION['user_id'] ?? null;
     $projectDir = rtrim(DIR, '/\\');
     $pythonPath = $projectDir . '/fyp/Scripts/python.exe';
     $monitorScript = $projectDir . '/python/ranswomware/ransomware_monitor.py';
     $pidFile = $projectDir . '/assets/data/ransomware_pid.json';
-    
+
     if (!file_exists($monitorScript)) {
         echo json_encode([
             'success' => false,
@@ -2214,7 +2306,7 @@ function start_ransomware_monitor()
         ]);
         return;
     }
-    
+
     if (!file_exists($pythonPath)) {
         echo json_encode([
             'success' => false,
@@ -2223,14 +2315,17 @@ function start_ransomware_monitor()
         ]);
         return;
     }
-    
+
+    // Load notifications helper
+    require_once DIR . "app/helpers/notifications.php";
+
     try {
         if (file_exists($pidFile)) {
             $pidData = json_decode(file_get_contents($pidFile), true);
             if (isset($pidData['monitor_pid'])) {
                 $checkCmd = "powershell -Command \"Get-Process -Id " . $pidData['monitor_pid'] . " -ErrorAction SilentlyContinue\"";
                 $result = shell_exec($checkCmd);
-                
+
                 if (!empty($result)) {
                     echo json_encode([
                         'success' => true,
@@ -2241,17 +2336,31 @@ function start_ransomware_monitor()
                 }
             }
         }
-        
+
         $cmd = "powershell -Command \"Start-Process -FilePath '$pythonPath' -ArgumentList '$monitorScript' -WindowStyle Hidden -PassThru | Select-Object -ExpandProperty Id\"";
         $pid = trim(shell_exec($cmd));
-        
+
         if (is_numeric($pid) && $pid > 0) {
             file_put_contents($pidFile, json_encode([
                 'monitor_pid' => (int)$pid,
                 'started_at' => date('Y-m-d H:i:s'),
                 'status' => 'running'
             ], JSON_PRETTY_PRINT));
-            
+
+            // Add notification
+            if ($userId) {
+                add_notification(
+                    $userId,
+                    'info',
+                    'Ransomware Monitor Started',
+                    'Real-time ransomware monitoring is now active',
+                    [
+                        'pid' => $pid,
+                        'action' => 'start_ransomware_monitor'
+                    ]
+                );
+            }
+
             echo json_encode([
                 'success' => true,
                 'message' => 'Ransomware monitoring started successfully',
@@ -2275,11 +2384,16 @@ function start_ransomware_monitor()
 
 function stop_ransomware_monitor()
 {
+    if (session_status() === PHP_SESSION_NONE) session_start();
     header('Content-Type: application/json');
-    
+
+    $userId = $_SESSION['user_id'] ?? null;
     $projectDir = rtrim(DIR, '/\\');
     $pidFile = $projectDir . '/assets/data/ransomware_pid.json';
-    
+
+    // Load notifications helper
+    require_once DIR . "app/helpers/notifications.php";
+
     try {
         if (!file_exists($pidFile)) {
             echo json_encode([
@@ -2288,15 +2402,28 @@ function stop_ransomware_monitor()
             ]);
             return;
         }
-        
+
         $pidData = json_decode(file_get_contents($pidFile), true);
-        
+
         if (isset($pidData['monitor_pid'])) {
             $pid = $pidData['monitor_pid'];
             $cmd = "powershell -Command \"Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue\"";
             shell_exec($cmd);
             @unlink($pidFile);
-            
+
+            // Add notification
+            if ($userId) {
+                add_notification(
+                    $userId,
+                    'warning',
+                    'Ransomware Monitor Stopped',
+                    'Real-time ransomware monitoring has been stopped',
+                    [
+                        'action' => 'stop_ransomware_monitor'
+                    ]
+                );
+            }
+
             echo json_encode([
                 'success' => true,
                 'message' => 'Monitoring stopped successfully'
@@ -2449,12 +2576,14 @@ function get_scan_progress()
 
 function start_full_scan()
 {
+    if (session_status() === PHP_SESSION_NONE) session_start();
     header('Content-Type: application/json');
-    
+
+    $userId = $_SESSION['user_id'] ?? null;
     $projectDir = rtrim(DIR, '/\\');
     $pythonPath = $projectDir . '/fyp/Scripts/python.exe';
     $scannerScript = $projectDir . '/python/ranswomware/ransomware_scanner.py';
-    
+
     if (!file_exists($scannerScript)) {
         echo json_encode([
             'success' => false,
@@ -2462,7 +2591,7 @@ function start_full_scan()
         ]);
         return;
     }
-    
+
     if (!file_exists($pythonPath)) {
         echo json_encode([
             'success' => false,
@@ -2470,7 +2599,10 @@ function start_full_scan()
         ]);
         return;
     }
-    
+
+    // Load notifications helper
+    require_once DIR . "app/helpers/notifications.php";
+
     try {
         $progressFile = $projectDir . '/assets/data/scan_progress.json';
         file_put_contents($progressFile, json_encode([
@@ -2481,10 +2613,10 @@ function start_full_scan()
             'threats_found' => 0,
             'started_at' => date('Y-m-d H:i:s')
         ], JSON_PRETTY_PRINT));
-        
+
         $cmd = "powershell -Command \"Start-Process -FilePath '$pythonPath' -ArgumentList '$scannerScript --full-scan' -WindowStyle Hidden -PassThru | Select-Object -ExpandProperty Id\"";
         $pid = trim(shell_exec($cmd));
-        
+
         if (is_numeric($pid) && $pid > 0) {
             $pidFile = $projectDir . '/assets/data/scan_pid.json';
             file_put_contents($pidFile, json_encode([
@@ -2492,7 +2624,22 @@ function start_full_scan()
                 'scan_type' => 'full',
                 'started_at' => date('Y-m-d H:i:s')
             ], JSON_PRETTY_PRINT));
-            
+
+            // Add notification
+            if ($userId) {
+                add_notification(
+                    $userId,
+                    'info',
+                    'Full System Scan Started',
+                    'Ransomware full system scan is now running. This may take several minutes.',
+                    [
+                        'scan_type' => 'full',
+                        'pid' => $pid,
+                        'action' => 'start_full_scan'
+                    ]
+                );
+            }
+
             echo json_encode([
                 'success' => true,
                 'message' => 'Full system scan initiated. This may take several minutes.',
@@ -2516,12 +2663,14 @@ function start_full_scan()
 
 function start_quick_scan()
 {
+    if (session_status() === PHP_SESSION_NONE) session_start();
     header('Content-Type: application/json');
-    
+
+    $userId = $_SESSION['user_id'] ?? null;
     $projectDir = rtrim(DIR, '/\\');
     $pythonPath = $projectDir . '/fyp/Scripts/python.exe';
     $scannerScript = $projectDir . '/python/ranswomware/ransomware_scanner.py';
-    
+
     if (!file_exists($scannerScript)) {
         echo json_encode([
             'success' => false,
@@ -2529,7 +2678,7 @@ function start_quick_scan()
         ]);
         return;
     }
-    
+
     if (!file_exists($pythonPath)) {
         echo json_encode([
             'success' => false,
@@ -2537,7 +2686,10 @@ function start_quick_scan()
         ]);
         return;
     }
-    
+
+    // Load notifications helper
+    require_once DIR . "app/helpers/notifications.php";
+
     try {
         $progressFile = $projectDir . '/assets/data/scan_progress.json';
         file_put_contents($progressFile, json_encode([
@@ -2551,8 +2703,23 @@ function start_quick_scan()
 
         $cmd = "powershell -Command \"Start-Process -FilePath '$pythonPath' -ArgumentList '$scannerScript --quick-scan' -WindowStyle Hidden -PassThru | Select-Object -ExpandProperty Id\"";
         $pid = trim(shell_exec($cmd));
-        
+
         if (is_numeric($pid) && $pid > 0) {
+            // Add notification
+            if ($userId) {
+                add_notification(
+                    $userId,
+                    'info',
+                    'Quick Scan Started',
+                    'Ransomware quick scan is now running on user folders',
+                    [
+                        'scan_type' => 'quick',
+                        'pid' => $pid,
+                        'action' => 'start_quick_scan'
+                    ]
+                );
+            }
+
             echo json_encode([
                 'success' => true,
                 'message' => 'Quick scan started on user folders',
@@ -2837,12 +3004,152 @@ function updateQuarantineCount($count)
 {
     $projectDir = rtrim(DIR, '/\\');
     $statsFile = $projectDir . '/assets/data/ransomware_stats.json';
-    
+
     if (file_exists($statsFile)) {
         $stats = json_decode(file_get_contents($statsFile), true);
         $stats['quarantined'] = $count;
         file_put_contents($statsFile, json_encode($stats, JSON_PRETTY_PRINT));
     }
+}
+
+
+// ==================== NOTIFICATION FUNCTIONS ====================
+
+/**
+ * Get notifications for the logged-in user
+ */
+function handle_get_notifications()
+{
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    header('Content-Type: application/json');
+
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+        return;
+    }
+
+    require_once DIR . "app/helpers/notifications.php";
+
+    $userId = $_SESSION['user_id'];
+    $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
+    $unreadOnly = isset($_GET['unread_only']) && $_GET['unread_only'] === 'true';
+
+    $notifications = get_user_notifications($userId, $limit, $unreadOnly);
+    $unreadCount = get_unread_notification_count($userId);
+
+    echo json_encode([
+        'success' => true,
+        'notifications' => $notifications,
+        'unread_count' => $unreadCount
+    ]);
+}
+
+/**
+ * Mark a notification as read
+ */
+function handle_mark_notification_read()
+{
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    header('Content-Type: application/json');
+
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+        return;
+    }
+
+    require_once DIR . "app/helpers/notifications.php";
+
+    $notificationId = $_POST['notification_id'] ?? null;
+
+    if (!$notificationId) {
+        echo json_encode(['success' => false, 'message' => 'Notification ID required']);
+        return;
+    }
+
+    $success = mark_notification_read($notificationId);
+
+    echo json_encode([
+        'success' => $success,
+        'message' => $success ? 'Notification marked as read' : 'Failed to mark notification as read'
+    ]);
+}
+
+/**
+ * Mark all notifications as read
+ */
+function handle_mark_all_notifications_read()
+{
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    header('Content-Type: application/json');
+
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+        return;
+    }
+
+    require_once DIR . "app/helpers/notifications.php";
+
+    $userId = $_SESSION['user_id'];
+    $success = mark_all_notifications_read($userId);
+
+    echo json_encode([
+        'success' => $success,
+        'message' => $success ? 'All notifications marked as read' : 'Failed to mark notifications as read'
+    ]);
+}
+
+/**
+ * Delete a notification
+ */
+function handle_delete_notification()
+{
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    header('Content-Type: application/json');
+
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+        return;
+    }
+
+    require_once DIR . "app/helpers/notifications.php";
+
+    $notificationId = $_POST['notification_id'] ?? null;
+
+    if (!$notificationId) {
+        echo json_encode(['success' => false, 'message' => 'Notification ID required']);
+        return;
+    }
+
+    $success = delete_notification($notificationId);
+
+    echo json_encode([
+        'success' => $success,
+        'message' => $success ? 'Notification deleted' : 'Failed to delete notification'
+    ]);
+}
+
+/**
+ * Clear all notifications for the user
+ */
+function handle_clear_all_notifications()
+{
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    header('Content-Type: application/json');
+
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+        return;
+    }
+
+    require_once DIR . "app/helpers/notifications.php";
+
+    $userId = $_SESSION['user_id'];
+    $success = clear_user_notifications($userId);
+
+    echo json_encode([
+        'success' => $success,
+        'message' => $success ? 'All notifications cleared' : 'Failed to clear notifications'
+    ]);
 }
 
 

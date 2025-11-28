@@ -7,10 +7,11 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <script src="<?= MDIR ?>assets/js/scripts.js"></script>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> 
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link href= "<?= MDIR ?>assets/css/style.css" rel="stylesheet" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/notify/0.4.2/notify.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet" />
+    <script src="<?= MDIR ?>assets/js/notifications.js"></script>
 
 
 
@@ -43,6 +44,32 @@
 
 .btn-link:focus {
     box-shadow: none;
+}
+
+/* Notification Styles */
+.notification-item {
+    transition: all 0.2s ease;
+}
+
+.notification-item:hover {
+    background-color: #f8f9fa !important;
+}
+
+.notification-item.bg-white {
+    background-color: #e3f2fd !important;
+}
+
+#notificationBadge {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.1);
+    }
 }
 </style>
 <header class="main-header d-flex justify-content-between align-items-center px-4 py-2">

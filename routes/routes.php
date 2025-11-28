@@ -129,6 +129,13 @@ $r->addRoute('POST', MDIR . 'delete-account', checkSession('user_id', 'handle_de
 // Statistics
 $r->addRoute('GET', MDIR . 'get-user-stats', checkSession('user_id', 'handle_get_user_stats'));
 
+    // ==================== NOTIFICATION ROUTES ====================
+    $r->addRoute('GET', MDIR . 'get-notifications', checkSession('user_id', 'handle_get_notifications'));
+    $r->addRoute('POST', MDIR . 'mark-notification-read', checkSession('user_id', 'handle_mark_notification_read'));
+    $r->addRoute('POST', MDIR . 'mark-all-notifications-read', checkSession('user_id', 'handle_mark_all_notifications_read'));
+    $r->addRoute('POST', MDIR . 'delete-notification', checkSession('user_id', 'handle_delete_notification'));
+    $r->addRoute('POST', MDIR . 'clear-all-notifications', checkSession('user_id', 'handle_clear_all_notifications'));
+
     /**
      * GDPR Routes
      */

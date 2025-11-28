@@ -17,6 +17,24 @@ import numpy as np
 from pathlib import Path
 from datetime import datetime
 
+# Load user settings from config file (synced with database)
+def load_user_settings():
+    """Load user settings controlled from UI"""
+    try:
+        config_file = Path(__file__).parent.parent.parent / "assets" / "config" / "settings.json"
+        if config_file.exists():
+            with open(config_file, 'r') as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"⚠️ Warning: Could not load user settings: {e}")
+    return {
+        'auto_quarantine': True,
+        'scan_on_upload': True
+    }
+
+# Load user settings
+_user_settings = load_user_settings()
+
 # Configuration
 CONFIG = {
     'DATA_DIR': 'assets/data',
@@ -24,6 +42,8 @@ CONFIG = {
     'VIRUSTOTAL_API_KEY': '685fe9d7889aaddde1c019f7d2a4ebccc9032c2663112fdc95257a699b3d4f30',
     'USE_VIRUSTOTAL': True,
     'USE_ML_MODEL': True,
+    'AUTO_QUARANTINE': _user_settings.get('auto_quarantine', True),  # NOW CONTROLLED FROM UI!
+    'SCAN_ON_UPLOAD': _user_settings.get('scan_on_upload', True),  # NOW CONTROLLED FROM UI!
     'SCAN_EXTENSIONS': [
         '.exe', '.dll', '.scr', '.bat', '.cmd', '.ps1', '.vbs',
         '.doc', '.docx', '.xls', '.xlsx', '.pdf', '.zip', '.rar',

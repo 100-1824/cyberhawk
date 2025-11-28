@@ -699,6 +699,7 @@ function handle_update_password() {
 // ==================== SYSTEM SETTINGS ====================
 
 function handle_save_settings() {
+    global $oConnection;
 
     if (session_status() === PHP_SESSION_NONE) session_start();
     header('Content-Type: application/json');
@@ -728,7 +729,7 @@ function handle_save_settings() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY unique_user_setting (user_id, setting_key)
     )";
-    mysqli_query($GLOBALS['conn'], $createTableSql);
+    $oConnection->dbc->query($createTableSql);
 
     // Update or insert each setting
     foreach ($settings as $key => $value) {

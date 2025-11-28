@@ -4,8 +4,14 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-require 'app/database/config.php';
+// Load Composer autoloader
 require 'vendor/autoload.php';
+
+// Load environment variables from .env file
+require 'app/bootstrap.php';
+
+// Load application files
+require 'app/database/config.php';
 require 'app/core/functions.php';
 require 'app/core/views.php';
 

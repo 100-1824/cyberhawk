@@ -142,20 +142,50 @@ $r->addRoute('GET', MDIR . 'get-user-stats', checkSession('user_id', 'handle_get
     $r->addRoute('GET', MDIR . 'gdpr/verify/{token}', 'get_gdpr_verify_page');
 
     /**
+     * ==================== FUTURE WORK - NOT IMPLEMENTED ====================
      * Azure SSO Login Routes
-     * File Location : app/core/Azure/functions.php
+     *
+     * Status: NOT IMPLEMENTED
+     * These routes are placeholders for Azure Active Directory Single Sign-On.
+     * Implementation requires:
+     * - Azure AD app registration
+     * - Azure SDK for PHP (composer require microsoft/microsoft-graph)
+     * - OAuth 2.0 configuration
+     * - Environment variables: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID
+     *
+     * Recommendation: Implement this feature for enterprise deployments
+     * See FEATURES.md for detailed implementation requirements
+     *
+     * File Location (planned): app/core/Azure/functions.php
      */
-    $r->addRoute('GET', MDIR.'loginAzure', 'authenticate_azureuser');
-    $r->addRoute('GET', MDIR.'AzureCallback', 'authenticate_azurecallback');
-    $r->addRoute('GET', MDIR.'AzureError', 'authenticate_azure_error');
+    // $r->addRoute('GET', MDIR.'loginAzure', 'authenticate_azureuser');
+    // $r->addRoute('GET', MDIR.'AzureCallback', 'authenticate_azurecallback');
+    // $r->addRoute('GET', MDIR.'AzureError', 'authenticate_azure_error');
 
     /**
-     * Contract Routes
+     * ==================== DEVELOPMENT ROUTES - DISABLED ====================
+     * These routes are for development and testing purposes only.
+     * They are disabled in production to prevent security issues.
+     *
+     * To enable for development:
+     * 1. Uncomment the routes below
+     * 2. Ensure handler functions exist in app/core/functions.php
+     * 3. Re-comment before deployment
      */
-    $r->addRoute('GET', MDIR . 'test-contracts', 'test_get_contracts');
 
-    //Testing purpose
-    $r->addRoute('GET', MDIR.'test', 'testing');
+    /**
+     * Contract Testing Route
+     * Status: DEVELOPMENT ONLY
+     * Purpose: Testing contract-related functionality during development
+     */
+    // $r->addRoute('GET', MDIR . 'test-contracts', 'test_get_contracts');
+
+    /**
+     * General Testing Route
+     * Status: DEVELOPMENT ONLY
+     * Purpose: General testing endpoint for development
+     */
+    // $r->addRoute('GET', MDIR.'test', 'testing');
 
     if(is_file('routes/test-routes.php'))
     {

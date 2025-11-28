@@ -1,0 +1,116 @@
+# ============================================================================
+# CyberHawk Python Dependencies
+# ============================================================================
+# Install with: pip install -r requirements.txt
+# Python Version: 3.9 or higher
+# ============================================================================
+
+# Core ML & Data Science Libraries
+# ----------------------------------------------------------------------------
+tensorflow==2.13.0
+keras==2.13.1
+scikit-learn==1.3.0
+numpy==1.24.3
+pandas==2.0.3
+
+# Network Traffic Analysis
+# ----------------------------------------------------------------------------
+scapy==2.5.0
+
+# File System Monitoring
+# ----------------------------------------------------------------------------
+watchdog==3.0.0
+
+# HTTP Requests & API Clients
+# ----------------------------------------------------------------------------
+requests==2.31.0
+urllib3==2.0.4
+
+# Malware Analysis
+# ----------------------------------------------------------------------------
+pefile==2023.2.7
+python-magic==0.4.27
+
+# Cryptography & Hashing
+# ----------------------------------------------------------------------------
+cryptography==41.0.3
+hashlib-additional==1.0.0
+
+# Data Serialization
+# ----------------------------------------------------------------------------
+json5==0.9.14
+
+# System Monitoring
+# ----------------------------------------------------------------------------
+psutil==5.9.5
+
+# Progress Bars & CLI
+# ----------------------------------------------------------------------------
+tqdm==4.66.1
+colorama==0.4.6
+
+# Date & Time Utilities
+# ----------------------------------------------------------------------------
+python-dateutil==2.8.2
+pytz==2023.3
+
+# Entropy Calculation
+# ----------------------------------------------------------------------------
+scipy==1.11.2
+
+# Configuration Management
+# ----------------------------------------------------------------------------
+python-dotenv==1.0.0
+
+# Logging
+# ----------------------------------------------------------------------------
+loguru==0.7.0
+
+# Optional: GPU Support for TensorFlow
+# ----------------------------------------------------------------------------
+# Uncomment if you have NVIDIA GPU and want GPU acceleration
+# tensorflow-gpu==2.13.0
+
+# Optional: Advanced Plotting
+# ----------------------------------------------------------------------------
+matplotlib==3.7.2
+seaborn==0.12.2
+
+# ============================================================================
+# Development & Testing Dependencies (Optional)
+# ============================================================================
+
+# Testing
+pytest==7.4.0
+pytest-cov==4.1.0
+
+# Code Quality
+pylint==2.17.5
+black==23.7.0
+flake8==6.1.0
+
+# ============================================================================
+# Notes:
+# ----------------------------------------------------------------------------
+# 1. Some libraries may require system dependencies:
+#    - python-magic requires libmagic
+#      Ubuntu/Debian: sudo apt-get install libmagic1
+#      macOS: brew install libmagic
+#
+# 2. Scapy requires administrator/root privileges for packet capture
+#
+# 3. TensorFlow GPU support requires:
+#    - NVIDIA GPU with CUDA Compute Capability 3.5+
+#    - CUDA Toolkit 11.8
+#    - cuDNN 8.6
+#
+# 4. For Windows, you may need to install:
+#    - Npcap (for Scapy): https://npcap.com/
+#    - Microsoft Visual C++ Redistributable
+#
+# 5. Virtual environment recommended:
+#    python -m venv venv
+#    source venv/bin/activate  # Linux/macOS
+#    venv\Scripts\activate     # Windows
+#    pip install -r requirements.txt
+# ============================================================================

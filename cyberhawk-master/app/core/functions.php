@@ -688,6 +688,15 @@ function handle_update_password() {
     $updateSql = "UPDATE users SET password = ? WHERE id = ?";
     mysqli_prepared_query($updateSql, 'si', [$hashedPassword, $userId]);
 
+    // Add notification
+    add_notification(
+        $userId,
+        'Password Changed',
+        'Your password has been updated successfully',
+        'success',
+        'bi-shield-check'
+    );
+
     echo json_encode(['success' => true, 'message' => 'Password updated successfully']);
     exit;
 }
@@ -729,6 +738,15 @@ function handle_save_settings() {
             mysqli_prepared_query($insertSql, 'iss', [$userId, $key, $value]);
         }
     }
+
+    // Add notification
+    add_notification(
+        $userId,
+        'Settings Updated',
+        'Your system settings have been saved successfully',
+        'success',
+        'bi-check-circle'
+    );
 
     echo json_encode(['success' => true, 'message' => 'Settings saved successfully']);
     exit;
@@ -779,6 +797,15 @@ function handle_save_api_keys() {
         }
     }
 
+    // Add notification
+    add_notification(
+        $userId,
+        'API Keys Updated',
+        'Your API keys have been saved successfully',
+        'success',
+        'bi-key'
+    );
+
     echo json_encode(['success' => true, 'message' => 'API keys saved successfully']);
     exit;
 }
@@ -814,6 +841,16 @@ function handle_clear_all_logs() {
             $clearedFiles[] = $file;
         }
     }
+
+    // Add notification
+    $userId = $_SESSION['user_id'];
+    add_notification(
+        $userId,
+        'Logs Cleared',
+        'All system logs have been cleared successfully',
+        'warning',
+        'bi-trash'
+    );
 
     echo json_encode([
         'success' => true,
@@ -994,6 +1031,114 @@ function handle_get_user_stats() {
     exit;
 }
 
+// ==================== NOTIFICATION SYSTEM ====================
+
+/**
+ * Add a notification for user actions
+ */
+function add_notification($userId, $title, $message, $type = 'info', $icon = 'bi-info-circle') {
+    $projectDir = rtrim(DIR, '/\\');
+    $notificationsFile = $projectDir . '/assets/data/user_notifications.json';
+
+    // Load existing notifications
+    $notifications = [];
+    if (file_exists($notificationsFile)) {
+        $data = json_decode(file_get_contents($notificationsFile), true);
+        $notifications = is_array($data) ? $data : [];
+    }
+
+    // Create new notification
+    $notification = [
+        'id' => uniqid('notif_', true),
+        'user_id' => $userId,
+        'title' => $title,
+        'message' => $message,
+        'type' => $type, // success, info, warning, danger
+        'icon' => $icon,
+        'timestamp' => date('Y-m-d H:i:s'),
+        'read' => false
+    ];
+
+    // Add to beginning of array (newest first)
+    array_unshift($notifications, $notification);
+
+    // Keep only last 100 notifications
+    $notifications = array_slice($notifications, 0, 100);
+
+    // Save notifications
+    file_put_contents($notificationsFile, json_encode($notifications, JSON_PRETTY_PRINT));
+
+    return $notification;
+}
+
+/**
+ * Get user notifications
+ */
+function get_user_notifications() {
+    if (session_status() === PHP_SESSION_NONE) session_start();
+
+    header('Content-Type: application/json');
+
+    $userId = $_SESSION['user_id'];
+    $projectDir = rtrim(DIR, '/\\');
+    $notificationsFile = $projectDir . '/assets/data/user_notifications.json';
+
+    $notifications = [];
+    if (file_exists($notificationsFile)) {
+        $allNotifications = json_decode(file_get_contents($notificationsFile), true);
+
+        // Filter by user ID
+        if (is_array($allNotifications)) {
+            $notifications = array_filter($allNotifications, function($notif) use ($userId) {
+                return isset($notif['user_id']) && $notif['user_id'] == $userId;
+            });
+            $notifications = array_values($notifications); // Re-index array
+        }
+    }
+
+    echo json_encode($notifications);
+    exit;
+}
+
+/**
+ * Mark notification as read
+ */
+function mark_notification_read() {
+    if (session_status() === PHP_SESSION_NONE) session_start();
+
+    header('Content-Type: application/json');
+
+    $notificationId = $_POST['notification_id'] ?? null;
+
+    if (!$notificationId) {
+        echo json_encode(['success' => false, 'message' => 'Notification ID required']);
+        exit;
+    }
+
+    $projectDir = rtrim(DIR, '/\\');
+    $notificationsFile = $projectDir . '/assets/data/user_notifications.json';
+
+    if (file_exists($notificationsFile)) {
+        $notifications = json_decode(file_get_contents($notificationsFile), true);
+
+        if (is_array($notifications)) {
+            foreach ($notifications as &$notif) {
+                if ($notif['id'] === $notificationId) {
+                    $notif['read'] = true;
+                    break;
+                }
+            }
+
+            file_put_contents($notificationsFile, json_encode($notifications, JSON_PRETTY_PRINT));
+            echo json_encode(['success' => true]);
+            exit;
+        }
+    }
+
+    echo json_encode(['success' => false]);
+    exit;
+}
+
 // ==================== REPORTING MODULE HANDLERS ====================
 
 /**
@@ -1135,12 +1280,30 @@ function handle_email_report() {
 
         $mail->send();
 
+        // Add notification
+        add_notification(
+            $userId,
+            'Report Emailed',
+            "Security report sent successfully to {$recipientEmail}",
+            'success',
+            'bi-envelope-check'
+        );
+
         echo json_encode([
             'success' => true,
             'message' => 'Report sent successfully to ' . $recipientEmail
         ]);
 
     } catch (Exception $e) {
+        // Add error notification
+        add_notification(
+            $userId,
+            'Email Failed',
+            "Failed to send report to {$recipientEmail}",
+            'danger',
+            'bi-exclamation-triangle'
+        );
+
         echo json_encode([
             'success' => false,
             'message' => 'Failed to send email: ' . $mail->ErrorInfo

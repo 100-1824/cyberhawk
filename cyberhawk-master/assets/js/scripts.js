@@ -81,45 +81,80 @@ function toggleSidebar() {
 let notificationsList = [];
 let notificationsShown = new Set();
 
-// Load and display notifications from alerts
+// Load and display notifications from both security alerts and system notifications
 function loadNotifications() {
-    $.getJSON("assets/data/alerts.json", function(alerts) {
-        if (!alerts || alerts.length === 0) {
-            updateNotificationBadge(0);
-            return;
-        }
+    const baseUrl = window.location.pathname.split('/').slice(0, -1).join('/') + '/';
 
-        // Sort by timestamp (newest first)
-        alerts.sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp));
+    // Load security alerts and system notifications in parallel
+    Promise.all([
+        $.getJSON("assets/data/alerts.json").catch(() => []),
+        $.ajax({
+            url: baseUrl + 'get-notifications',
+            method: 'GET',
+            dataType: 'json'
+        }).catch(() => [])
+    ]).then(([alerts, systemNotifications]) => {
+        const allNotifications = [];
 
-        // Get only the latest 10 unread notifications
-        const latestAlerts = alerts.slice(0, 10);
+        // Process security alerts
+        if (alerts && alerts.length > 0) {
+            alerts.sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp));
+            const latestAlerts = alerts.slice(0, 10);
 
-        // Filter out notifications we've already shown
-        const newAlerts = latestAlerts.filter(alert => {
-            const alertId = `${alert.Timestamp}_${alert['Src IP']}_${alert['Attack Type']}`;
-            return !notificationsShown.has(alertId);
-        });
+            latestAlerts.forEach(alert => {
+                allNotifications.push({
+                    id: `alert_${alert.Timestamp}_${alert['Src IP']}`,
+                    type: 'security',
+                    title: alert['Attack Type'],
+                    severity: alert.Severity || 'LOW',
+                    timestamp: alert.Timestamp,
+                    data: alert
+                });
+            });
 
-        // Add new alerts to the shown set
-        newAlerts.forEach(alert => {
-            const alertId = `${alert.Timestamp}_${alert['Src IP']}_${alert['Attack Type']}`;
-            notificationsShown.add(alertId);
-        });
+            // Check for new alerts for browser notifications
+            const newAlerts = latestAlerts.filter(alert => {
+                const alertId = `${alert.Timestamp}_${alert['Src IP']}_${alert['Attack Type']}`;
+                return !notificationsShown.has(alertId);
+            });
 
-        notificationsList = latestAlerts;
-        displayNotifications();
-        updateNotificationBadge(latestAlerts.length);
-
-        // Show browser notification for new critical alerts
-        if (newAlerts.length > 0) {
             newAlerts.forEach(alert => {
+                const alertId = `${alert.Timestamp}_${alert['Src IP']}_${alert['Attack Type']}`;
+                notificationsShown.add(alertId);
                 if (alert.Severity === 'CRITICAL' || alert.Severity === 'HIGH') {
                     showBrowserNotification(alert);
                 }
             });
         }
-    }).fail(function() {
+
+        // Process system notifications
+        if (systemNotifications && systemNotifications.length > 0) {
+            systemNotifications.slice(0, 10).forEach(notif => {
+                allNotifications.push({
+                    id: notif.id,
+                    type: 'system',
+                    title: notif.title,
+                    message: notif.message,
+                    severity: notif.type.toUpperCase(),
+                    icon: notif.icon,
+                    timestamp: notif.timestamp,
+                    read: notif.read
+                });
+            });
+        }
+
+        // Sort all notifications by timestamp
+        allNotifications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        notificationsList = allNotifications.slice(0, 20); // Keep latest 20
+        displayNotifications();
+
+        // Count unread notifications
+        const unreadCount = notificationsList.filter(n => n.type === 'system' ? !n.read : true).length;
+        updateNotificationBadge(unreadCount);
+
+    }).catch(error => {
+        console.error('Error loading notifications:', error);
         updateNotificationBadge(0);
     });
 }
@@ -140,42 +175,73 @@ function displayNotifications() {
 
     let html = '';
     notificationsList.forEach(notification => {
-        const severity = notification.Severity || 'LOW';
+        const severity = notification.severity || 'INFO';
         const severityColor = getSeverityColor(severity);
-        const severityIcon = getSeverityIcon(severity);
-        const timeAgo = getTimeAgo(notification.Timestamp);
+        const timeAgo = getTimeAgo(notification.timestamp);
 
-        html += `
-            <div class="notification-item border-bottom p-3" style="cursor: pointer; transition: background 0.2s;"
-                 onmouseover="this.style.background='#f8f9fa'"
-                 onmouseout="this.style.background='white'">
-                <div class="d-flex align-items-start">
-                    <div class="me-3">
-                        <i class="bi ${severityIcon}" style="font-size: 1.5rem; color: ${severityColor};"></i>
-                    </div>
-                    <div class="flex-grow-1">
-                        <div class="d-flex justify-content-between align-items-start mb-1">
-                            <strong class="text-dark">${notification['Attack Type']}</strong>
-                            <span class="badge" style="background: ${severityColor}; font-size: 0.7rem;">
-                                ${severity}
-                            </span>
+        if (notification.type === 'security') {
+            // Security alert notification
+            const alert = notification.data;
+            const severityIcon = getSeverityIcon(severity);
+
+            html += `
+                <div class="notification-item border-bottom p-3" style="cursor: pointer; transition: background 0.2s;"
+                     onmouseover="this.style.background='#f8f9fa'"
+                     onmouseout="this.style.background='white'">
+                    <div class="d-flex align-items-start">
+                        <div class="me-3">
+                            <i class="bi ${severityIcon}" style="font-size: 1.5rem; color: ${severityColor};"></i>
                         </div>
-                        <p class="mb-1 small text-muted">
-                            Source: ${notification['Src IP']}:${notification['Src Port']} →
-                            ${notification['Dst IP']}:${notification['Dst Port']}
-                        </p>
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                <strong class="text-dark">${notification.title}</strong>
+                                <span class="badge" style="background: ${severityColor}; font-size: 0.7rem;">
+                                    ${severity}
+                                </span>
+                            </div>
+                            <p class="mb-1 small text-muted">
+                                Source: ${alert['Src IP']}:${alert['Src Port']} → ${alert['Dst IP']}:${alert['Dst Port']}
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">
+                                    <i class="bi bi-clock me-1"></i>${timeAgo}
+                                </small>
+                                <small class="text-muted">
+                                    Confidence: ${(alert.Confidence * 100).toFixed(1)}%
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // System notification
+            const icon = notification.icon || 'bi-info-circle';
+            const readClass = notification.read ? 'opacity-75' : '';
+
+            html += `
+                <div class="notification-item border-bottom p-3 ${readClass}"
+                     style="cursor: pointer; transition: background 0.2s;"
+                     onmouseover="this.style.background='#f8f9fa'"
+                     onmouseout="this.style.background='white'">
+                    <div class="d-flex align-items-start">
+                        <div class="me-3">
+                            <i class="bi ${icon}" style="font-size: 1.5rem; color: ${severityColor};"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                <strong class="text-dark">${notification.title}</strong>
+                                ${!notification.read ? '<span class="badge bg-primary" style="font-size: 0.6rem;">NEW</span>' : ''}
+                            </div>
+                            <p class="mb-1 small text-muted">${notification.message}</p>
                             <small class="text-muted">
                                 <i class="bi bi-clock me-1"></i>${timeAgo}
-                            </small>
-                            <small class="text-muted">
-                                Confidence: ${(notification.Confidence * 100).toFixed(1)}%
                             </small>
                         </div>
                     </div>
                 </div>
-            </div>
-        `;
+            `;
+        }
     });
 
     container.html(html);
@@ -194,11 +260,18 @@ function updateNotificationBadge(count) {
 
 // Get severity color
 function getSeverityColor(severity) {
-    switch(severity) {
+    const sev = severity.toUpperCase();
+    switch(sev) {
+        // Security alert levels
         case 'CRITICAL': return '#dc3545';
         case 'HIGH': return '#fd7e14';
         case 'MEDIUM': return '#ffc107';
         case 'LOW': return '#28a745';
+        // System notification types
+        case 'SUCCESS': return '#28a745';
+        case 'DANGER': return '#dc3545';
+        case 'WARNING': return '#ffc107';
+        case 'INFO': return '#0dcaf0';
         default: return '#6c757d';
     }
 }

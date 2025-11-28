@@ -17,6 +17,10 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet" />
     <script src="<?= MDIR ?>assets/js/notifications.js"></script>
 
+    <!-- CyberHawk AI Chatbot -->
+    <link href="<?= MDIR ?>assets/css/chatbot.css" rel="stylesheet" />
+    <script src="<?= MDIR ?>assets/js/chatbot.js"></script>
+
 
 
 <style>

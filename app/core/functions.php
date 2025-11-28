@@ -750,7 +750,8 @@ function handle_save_settings() {
         exit;
     }
 
-    // Create system_settings table if it doesn't exist
+    // Create system_settings table if it doesn't exist (using raw query for DDL)
+    // Note: CREATE TABLE cannot use prepared statements as it's a DDL statement
     $createTableSql = "CREATE TABLE IF NOT EXISTS system_settings (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
@@ -759,7 +760,11 @@ function handle_save_settings() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY unique_user_setting (user_id, setting_key)
     )";
-    $oConnection->dbc->query($createTableSql);
+
+    // Execute table creation (DDL requires direct query, not prepared statement)
+    if (!$oConnection->dbc->query($createTableSql)) {
+        error_log("Failed to create system_settings table: " . $oConnection->dbc->error);
+    }
 
     // Update or insert each setting in database
     foreach ($settings as $key => $value) {

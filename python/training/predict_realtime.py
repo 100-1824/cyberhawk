@@ -508,7 +508,7 @@ class TrafficMonitor:
             traceback.print_exc()
     
     def run(self):
-        """Main monitoring loop"""
+        """Main monitoring loop with dynamic settings reload"""
         print("\n" + "=" * 80)
         print("🔍 STARTING REAL-TIME MONITORING")
         print("=" * 80)
@@ -519,14 +519,28 @@ class TrafficMonitor:
         print(f"🛡️  False positive filtering: ENABLED")
         print("\nPress Ctrl+C to stop monitoring...")
         print("=" * 80 + "\n")
-        
+
         last_check_time = time.time()
-        
+        last_settings_reload = time.time()
+
         try:
             while True:
+                # Reload settings every 10 seconds to pick up UI changes
+                current_time = time.time()
+                if current_time - last_settings_reload >= 10:
+                    user_settings = Config.load_user_settings()
+                    old_threshold = Config.CONFIDENCE_THRESHOLD
+                    new_threshold = user_settings.get('alert_threshold', 0.85)
+
+                    if old_threshold != new_threshold:
+                        Config.CONFIDENCE_THRESHOLD = new_threshold
+                        print(f"\n⚙️  Settings updated: Threshold changed from {old_threshold:.0%} to {new_threshold:.0%}")
+
+                    last_settings_reload = current_time
+
                 # Load traffic log
                 flows = self._load_traffic_log()
-                
+
                 # Filter out already processed flows
                 new_flows = []
                 for flow in flows:
@@ -534,14 +548,13 @@ class TrafficMonitor:
                     if flow_id not in self.processed_flows:
                         new_flows.append(flow)
                         self.processed_flows.add(flow_id)
-                
+
                 # Process new flows
                 if new_flows:
                     print(f"[{datetime.now().strftime('%H:%M:%S')}] Processing {len(new_flows)} new flow(s)...")
                     self.predict_and_alert(new_flows)
-                
+
                 # Print stats periodically (every 30 seconds)
-                current_time = time.time()
                 if current_time - last_check_time >= 30:
                     print(f"\n📊 Statistics:")
                     print(f"   Total processed: {self.stats['total_processed']}")
@@ -549,11 +562,12 @@ class TrafficMonitor:
                     print(f"   Benign flows: {self.stats['benign_flows']}")
                     print(f"   Filtered false positives: {self.stats['filtered_false_positives']}")
                     print(f"   Errors: {self.stats['errors']}")
+                    print(f"   Current threshold: {Config.CONFIDENCE_THRESHOLD:.0%}")
                     last_check_time = current_time
-                
+
                 # Wait before next check
                 time.sleep(Config.CHECK_INTERVAL)
-                
+
         except KeyboardInterrupt:
             print("\n\n" + "=" * 80)
             print("🛑 MONITORING STOPPED BY USER")

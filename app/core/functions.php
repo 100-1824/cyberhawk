@@ -36,6 +36,37 @@ function checkSession($requiredSession, $handler) {
             exit;
         }
 
+        // ==================== SESSION TIMEOUT CHECK (from user settings) ====================
+        // Load user's session timeout setting
+        $userId = $_SESSION['user_id'];
+        $timeoutSettingQuery = "SELECT setting_value FROM system_settings WHERE user_id = ? AND setting_key = 'session_timeout'";
+        $timeoutResult = mysqli_prepared_query($timeoutSettingQuery, 'i', [$userId]);
+
+        $sessionTimeoutMinutes = 30; // Default 30 minutes
+        if (!empty($timeoutResult)) {
+            $sessionTimeoutMinutes = intval($timeoutResult[0]['setting_value']);
+        }
+
+        // Only check timeout if not set to "Never" (0)
+        if ($sessionTimeoutMinutes > 0) {
+            $timeout = $sessionTimeoutMinutes * 60; // Convert to seconds
+
+            if (isset($_SESSION['LAST_ACTIVITY'])) {
+                $elapsedTime = time() - $_SESSION['LAST_ACTIVITY'];
+                if ($elapsedTime > $timeout) {
+                    // Session expired due to inactivity
+                    session_destroy();
+                    setcookie('session_id', '', time() - 3600, '/', '', false, true);
+                    header('HTTP/1.1 401 Unauthorized');
+                    header('Location: ' . MDIR . 'login?timeout=1');
+                    exit;
+                }
+            }
+
+            // Update last activity time
+            $_SESSION['LAST_ACTIVITY'] = time();
+        }
+
         // Check if the session ID from the cookie matches the session ID stored in the PHP session
         if (!isset($_COOKIE['session_id']) || $_COOKIE['session_id'] !== session_id()) {
             header('HTTP/1.1 401 Unauthorized');
@@ -43,8 +74,7 @@ function checkSession($requiredSession, $handler) {
             exit;
         }
 
-        // Fetch the session ID from the database using USER_ID
-        $userId = $_SESSION['user_id'];
+        // Fetch the session ID from the database using USER_ID (already set above)
         
         // FIX: Get the user's email first, then check session
         $userQuery = "SELECT email FROM users WHERE id = ?";
@@ -731,12 +761,10 @@ function handle_save_settings() {
     )";
     $oConnection->dbc->query($createTableSql);
 
-    // Update or insert each setting
+    // Update or insert each setting in database
     foreach ($settings as $key => $value) {
         // Convert boolean to string for storage
-        if (is_bool($value)) {
-            $value = $value ? '1' : '0';
-        }
+        $dbValue = is_bool($value) ? ($value ? '1' : '0') : $value;
 
         $checkSql = "SELECT id FROM system_settings WHERE user_id = ? AND setting_key = ?";
         $existing = mysqli_prepared_query($checkSql, 'is', [$userId, $key]);
@@ -744,13 +772,38 @@ function handle_save_settings() {
         if ($existing && count($existing) > 0) {
 
             $updateSql = "UPDATE system_settings SET setting_value = ? WHERE user_id = ? AND setting_key = ?";
-            mysqli_prepared_query($updateSql, 'sis', [$value, $userId, $key]);
+            mysqli_prepared_query($updateSql, 'sis', [$dbValue, $userId, $key]);
 
         } else {
 
             $insertSql = "INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?)";
-            mysqli_prepared_query($insertSql, 'iss', [$userId, $key, $value]);
+            mysqli_prepared_query($insertSql, 'iss', [$userId, $key, $dbValue]);
         }
+    }
+
+    // ==================== WRITE TO CONFIG FILE FOR PYTHON SCRIPTS ====================
+    // This makes settings actually control system behavior
+    $configPath = DIR . 'assets/config/settings.json';
+
+    // Prepare config data for Python scripts
+    $configData = [
+        'alert_threshold' => floatval($settings['alert_threshold'] ?? 85) / 100, // Convert to decimal
+        'session_timeout' => intval($settings['session_timeout'] ?? 30),
+        'enable_email_alerts' => (bool)($settings['enable_email_alerts'] ?? false),
+        'enable_desktop_alerts' => (bool)($settings['enable_desktop_alerts'] ?? true),
+        'log_retention_days' => intval($settings['log_retention_days'] ?? 30),
+        'auto_quarantine' => (bool)($settings['auto_quarantine'] ?? true),
+        'scan_on_upload' => (bool)($settings['scan_on_upload'] ?? true),
+        'alert_sound' => (bool)($settings['alert_sound'] ?? false),
+        'daily_summary' => (bool)($settings['daily_summary'] ?? false),
+        'theme' => $settings['theme'] ?? 'light',
+        'last_updated' => date('c') // ISO 8601 format
+    ];
+
+    // Write config file (with error handling)
+    $configJson = json_encode($configData, JSON_PRETTY_PRINT);
+    if (file_put_contents($configPath, $configJson) === false) {
+        error_log("Failed to write settings config file: $configPath");
     }
 
     echo json_encode(['success' => true, 'message' => 'Settings saved successfully']);

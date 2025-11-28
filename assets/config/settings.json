@@ -1,0 +1,13 @@
+{
+    "alert_threshold": 0.85,
+    "session_timeout": 30,
+    "enable_email_alerts": false,
+    "enable_desktop_alerts": true,
+    "log_retention_days": 30,
+    "auto_quarantine": true,
+    "scan_on_upload": true,
+    "alert_sound": false,
+    "daily_summary": false,
+    "theme": "light",
+    "last_updated": "2025-01-19T00:00:00Z"
+}

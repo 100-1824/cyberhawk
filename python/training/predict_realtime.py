@@ -33,29 +33,53 @@ except ImportError as e:
 # ============================================================================
 
 class Config:
-    """Configuration parameters"""
+    """Configuration parameters - Loads settings from database-synced config file"""
 
-    
+
     # Paths
     BASE_DIR = Path(__file__).parent.parent.parent  # Go up to cyberhawk root
     MODEL_DIR = BASE_DIR / "assets" / "model"  # ✅ Correct path
     DATA_DIR = BASE_DIR / "assets" / "data"  # ✅ Correct path
-    
+    CONFIG_FILE = BASE_DIR / "assets" / "config" / "settings.json"  # ✅ Settings from database
+
     # Files
     TRAFFIC_LOG = DATA_DIR / "traffic_log.json"
     ALERTS_LOG = DATA_DIR / "alerts.json"
-    
+
     # Model files (will be detected automatically)
     MODEL_FILE = None
     SCALER_FILE = MODEL_DIR / "scaler.pkl"
     LABEL_ENCODER_FILE = MODEL_DIR / "label_encoder.pkl"
     FEATURE_NAMES_FILE = MODEL_DIR / "feature_names.json"
-    
+
+    # Load user settings from config file (these settings are controlled from UI)
+    @staticmethod
+    def load_user_settings():
+        """Load user settings from config file (synced with database)"""
+        try:
+            if Config.CONFIG_FILE.exists():
+                with open(Config.CONFIG_FILE, 'r') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"⚠️ Warning: Could not load user settings: {e}")
+
+        # Return defaults if config file doesn't exist or can't be read
+        return {
+            'alert_threshold': 0.85,
+            'auto_quarantine': True,
+            'enable_email_alerts': False,
+            'enable_desktop_alerts': True
+        }
+
     # Prediction settings
     CHECK_INTERVAL = 2.0  # Check for new logs every 2 seconds
     BATCH_SIZE = 32  # Process logs in batches for efficiency
-    CONFIDENCE_THRESHOLD = 0.90  # Minimum confidence for attack detection (raised to reduce false positives)
-    
+
+    # Dynamic settings loaded from user config (can be changed from UI)
+    _user_settings = load_user_settings.__func__()  # Load once at startup
+    CONFIDENCE_THRESHOLD = _user_settings.get('alert_threshold', 0.85)  # NOW CONTROLLED FROM UI!
+    AUTO_QUARANTINE = _user_settings.get('auto_quarantine', True)  # NOW CONTROLLED FROM UI!
+
     # Alert settings
     MAX_ALERTS = 1000  # Maximum alerts to keep in alerts.json
     ALERT_COOLDOWN = 5  # Seconds to wait before alerting same flow again

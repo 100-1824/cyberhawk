@@ -16,21 +16,28 @@ echo "<hr>";
 
 // 1. Check if system_settings table exists
 echo "<h2>1. Database Check</h2>";
+// Note: SHOW TABLES cannot use prepared statements (DDL operation)
 $tableCheck = mysqli_query($oConnection->dbc, "SHOW TABLES LIKE 'system_settings'");
-if (mysqli_num_rows($tableCheck) > 0) {
+if ($tableCheck && mysqli_num_rows($tableCheck) > 0) {
     echo "✅ system_settings table exists<br>";
 } else {
     echo "❌ system_settings table does NOT exist<br>";
+    echo "<p style='color: red;'>Run the SQL file: database/create_system_settings_table.sql</p>";
 }
 
-// 2. Check current database settings
+// 2. Check current database settings (using mysqli_prepared_query)
 echo "<h2>2. Current Database Settings</h2>";
-$sql = "SELECT * FROM system_settings WHERE user_id = 1";
-$result = mysqli_query($oConnection->dbc, $sql);
-if ($result && mysqli_num_rows($result) > 0) {
+$userId = $_SESSION['user_id'];
+$settingsData = mysqli_prepared_query(
+    "SELECT id, setting_key, setting_value, updated_at FROM system_settings WHERE user_id = ?",
+    'i',
+    [$userId]
+);
+
+if ($settingsData && count($settingsData) > 0) {
     echo "<table border='1' cellpadding='5'>";
     echo "<tr><th>ID</th><th>Setting Key</th><th>Setting Value</th><th>Updated At</th></tr>";
-    while ($row = mysqli_fetch_assoc($result)) {
+    foreach ($settingsData as $row) {
         echo "<tr>";
         echo "<td>{$row['id']}</td>";
         echo "<td>{$row['setting_key']}</td>";
@@ -40,7 +47,8 @@ if ($result && mysqli_num_rows($result) > 0) {
     }
     echo "</table>";
 } else {
-    echo "⚠️ No settings found for user_id = 1<br>";
+    echo "⚠️ No settings found for user_id = {$userId}<br>";
+    echo "<p>Try saving some settings from the <a href='" . MDIR . "settings'>Settings Page</a></p>";
 }
 
 // 3. Check config file

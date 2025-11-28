@@ -16,6 +16,22 @@ import joblib
 import numpy as np
 from pathlib import Path
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+# Get the project root directory (two levels up from this script)
+project_root = Path(__file__).parent.parent.parent
+env_path = project_root / '.env'
+
+# Load .env file if it exists, otherwise fall back to .env.example
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
+else:
+    env_example_path = project_root / '.env.example'
+    if env_example_path.exists():
+        load_dotenv(dotenv_path=env_example_path)
+    else:
+        print("[WARNING] No .env or .env.example file found. Using default configuration.")
 
 # Load user settings from config file (synced with database)
 def load_user_settings():
@@ -35,13 +51,13 @@ def load_user_settings():
 # Load user settings
 _user_settings = load_user_settings()
 
-# Configuration
+# Configuration - now loaded from environment variables
 CONFIG = {
-    'DATA_DIR': 'assets/data',
-    'MODEL_PATH': 'python/ranswomware/ransomware_model.pkl',
-    'VIRUSTOTAL_API_KEY': '685fe9d7889aaddde1c019f7d2a4ebccc9032c2663112fdc95257a699b3d4f30',
-    'USE_VIRUSTOTAL': True,
-    'USE_ML_MODEL': True,
+    'DATA_DIR': os.getenv('UPLOAD_DIR', 'assets/data').rstrip('/'),
+    'MODEL_PATH': os.getenv('RANSOMWARE_MODEL_PATH', 'python/ranswomware/ransomware_model.pkl'),
+    'VIRUSTOTAL_API_KEY': os.getenv('VIRUSTOTAL_API_KEY'),
+    'USE_VIRUSTOTAL': os.getenv('USE_VIRUSTOTAL', 'true').lower() == 'true',
+    'USE_ML_MODEL': os.getenv('USE_ML_MODEL', 'true').lower() == 'true',
     'AUTO_QUARANTINE': _user_settings.get('auto_quarantine', True),  # NOW CONTROLLED FROM UI!
     'SCAN_ON_UPLOAD': _user_settings.get('scan_on_upload', True),  # NOW CONTROLLED FROM UI!
     'SCAN_EXTENSIONS': [
@@ -49,7 +65,9 @@ CONFIG = {
         '.doc', '.docx', '.xls', '.xlsx', '.pdf', '.zip', '.rar',
         '.jpg', '.png', '.txt', '.db', '.sql'
     ],
-    'SUSPICIOUS_EXTENSIONS': [
+    'SUSPICIOUS_EXTENSIONS': os.getenv('SUSPICIOUS_EXTENSIONS',
+        '.encrypted,.locked,.crypto,.crypt,.crypted,.enc,.locky,.zepto,.cerber,.wannacry'
+    ).split(',') if os.getenv('SUSPICIOUS_EXTENSIONS') else [
         '.encrypted', '.locked', '.crypto', '.crypt', '.crypted',
         '.enc', '.locky', '.zepto', '.cerber', '.wannacry'
     ]

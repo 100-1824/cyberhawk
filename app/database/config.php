@@ -2,39 +2,38 @@
 
 class dbConnection{
 
-    private $host ="localhost"; 
-    private $user = "root";
-    private $password = ""; 
-    private $db="cyberhawk";
-
-
+    private $host;
+    private $user;
+    private $password;
+    private $db;
 
     public $dbc;
-    
+
     function __construct() {
+        // Load database credentials from environment variables
+        $this->host = env('DB_HOST', 'localhost');
+        $this->user = env('DB_USERNAME', 'root');
+        $this->password = env('DB_PASSWORD', '');
+        $this->db = env('DB_DATABASE', 'cyberhawk');
 
         $mysqli = new MySQLi($this->host, $this->user, $this->password, $this->db);
-        
+
         if(mysqli_errno($mysqli)){
             die();
             echo"Connection Error";
-            
+
         }
         else{
-           $this->dbc = $mysqli; 
-           
+           $this->dbc = $mysqli;
+
         }
     }
 }
 
 
 
- $globalWebsiteUrl = "http://localhost/contract/";
+ $globalWebsiteUrl = env('APP_URL', 'http://localhost/cyberhawk/');
 
-
-
-define('MDIR', '/cyberhawk/');
-define("DIR", "E:/xampp/htdocs/cyberhawk/");  
-
+// Note: MDIR and DIR constants are now defined in app/bootstrap.php
 
 ?>

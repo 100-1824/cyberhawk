@@ -708,16 +708,34 @@ function handle_save_settings() {
         exit;
     }
 
-    $userId   = $_SESSION['user_id'];
-    $settings = $_POST['settings'] ?? [];
+    $userId = $_SESSION['user_id'];
 
-    if (empty($settings)) {
-        echo json_encode(['success' => false, 'message' => 'No settings provided']);
+    // Decode JSON settings
+    $settingsJson = $_POST['settings'] ?? '';
+    $settings = json_decode($settingsJson, true);
+
+    if (empty($settings) || !is_array($settings)) {
+        echo json_encode(['success' => false, 'message' => 'No settings provided or invalid format']);
         exit;
     }
 
+    // Create system_settings table if it doesn't exist
+    $createTableSql = "CREATE TABLE IF NOT EXISTS system_settings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        setting_key VARCHAR(255) NOT NULL,
+        setting_value TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_user_setting (user_id, setting_key)
+    )";
+    mysqli_query($GLOBALS['conn'], $createTableSql);
+
     // Update or insert each setting
     foreach ($settings as $key => $value) {
+        // Convert boolean to string for storage
+        if (is_bool($value)) {
+            $value = $value ? '1' : '0';
+        }
 
         $checkSql = "SELECT id FROM system_settings WHERE user_id = ? AND setting_key = ?";
         $existing = mysqli_prepared_query($checkSql, 'is', [$userId, $key]);

@@ -26,23 +26,26 @@ $userData = mysqli_prepared_query($sql, 'i', [$userId]);
 $user = $userData[0];
 
 // Get system settings from database or use defaults
-$settingsSql = "SELECT setting_key, setting_value FROM system_settings WHERE user_id = ? OR user_id IS NULL";
+$settingsSql = "SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?";
 $settingsData = mysqli_prepared_query($settingsSql, 'i', [$userId]);
 
 $settings = [
-    'alert_threshold' => 0.90,
+    'alert_threshold' => 85,
     'session_timeout' => 30,
-    'enable_email_alerts' => false,
-    'enable_desktop_alerts' => true,
+    'enable_email_alerts' => 0,
+    'enable_desktop_alerts' => 1,
     'log_retention_days' => 30,
-    'auto_quarantine' => true,
-    'scan_on_upload' => true,
+    'auto_quarantine' => 1,
+    'scan_on_upload' => 1,
+    'alert_sound' => 0,
+    'daily_summary' => 0,
     'virustotal_api_key' => '',
+    'hybrid_analysis_key' => '',
     'theme' => 'light'
 ];
 
 // Override with user's custom settings
-if ($settingsData) {
+if ($settingsData && is_array($settingsData)) {
     foreach ($settingsData as $setting) {
         $settings[$setting['setting_key']] = $setting['setting_value'];
     }
@@ -425,11 +428,11 @@ if ($settingsData) {
                                         </div>
                                         <div class="setting-control">
                                             <select class="form-select" id="sessionTimeout">
-                                                <option value="15">15 minutes</option>
-                                                <option value="30" selected>30 minutes</option>
-                                                <option value="60">1 hour</option>
-                                                <option value="120">2 hours</option>
-                                                <option value="0">Never</option>
+                                                <option value="15" <?= $settings['session_timeout'] == 15 ? 'selected' : '' ?>>15 minutes</option>
+                                                <option value="30" <?= $settings['session_timeout'] == 30 ? 'selected' : '' ?>>30 minutes</option>
+                                                <option value="60" <?= $settings['session_timeout'] == 60 ? 'selected' : '' ?>>1 hour</option>
+                                                <option value="120" <?= $settings['session_timeout'] == 120 ? 'selected' : '' ?>>2 hours</option>
+                                                <option value="0" <?= $settings['session_timeout'] == 0 ? 'selected' : '' ?>>Never</option>
                                             </select>
                                         </div>
                                     </div>
@@ -478,9 +481,9 @@ if ($settingsData) {
                                             <p>Minimum confidence level to trigger alerts (85% recommended)</p>
                                         </div>
                                         <div class="setting-control">
-                                            <input type="range" class="form-range" min="60" max="95" step="5" 
-                                                   value="85" id="alertThreshold">
-                                            <span id="thresholdValue">85%</span>
+                                            <input type="range" class="form-range" min="60" max="95" step="5"
+                                                   value="<?= $settings['alert_threshold'] ?>" id="alertThreshold">
+                                            <span id="thresholdValue"><?= $settings['alert_threshold'] ?>%</span>
                                         </div>
                                     </div>
 
@@ -491,7 +494,7 @@ if ($settingsData) {
                                         </div>
                                         <div class="setting-control">
                                             <div class="form-check form-switch custom-switch">
-                                                <input class="form-check-input" type="checkbox" id="autoQuarantine" checked>
+                                                <input class="form-check-input" type="checkbox" id="autoQuarantine" <?= $settings['auto_quarantine'] == 1 ? 'checked' : '' ?>>
                                             </div>
                                         </div>
                                     </div>
@@ -503,7 +506,7 @@ if ($settingsData) {
                                         </div>
                                         <div class="setting-control">
                                             <div class="form-check form-switch custom-switch">
-                                                <input class="form-check-input" type="checkbox" id="scanOnUpload" checked>
+                                                <input class="form-check-input" type="checkbox" id="scanOnUpload" <?= $settings['scan_on_upload'] == 1 ? 'checked' : '' ?>>
                                             </div>
                                         </div>
                                     </div>
@@ -522,11 +525,11 @@ if ($settingsData) {
                                         </div>
                                         <div class="setting-control">
                                             <select class="form-select" id="logRetention">
-                                                <option value="7">7 days</option>
-                                                <option value="14">14 days</option>
-                                                <option value="30" selected>30 days</option>
-                                                <option value="60">60 days</option>
-                                                <option value="90">90 days</option>
+                                                <option value="7" <?= $settings['log_retention_days'] == 7 ? 'selected' : '' ?>>7 days</option>
+                                                <option value="14" <?= $settings['log_retention_days'] == 14 ? 'selected' : '' ?>>14 days</option>
+                                                <option value="30" <?= $settings['log_retention_days'] == 30 ? 'selected' : '' ?>>30 days</option>
+                                                <option value="60" <?= $settings['log_retention_days'] == 60 ? 'selected' : '' ?>>60 days</option>
+                                                <option value="90" <?= $settings['log_retention_days'] == 90 ? 'selected' : '' ?>>90 days</option>
                                             </select>
                                         </div>
                                     </div>
@@ -572,7 +575,7 @@ if ($settingsData) {
                                         </div>
                                         <div class="setting-control">
                                             <div class="form-check form-switch custom-switch">
-                                                <input class="form-check-input" type="checkbox" id="emailAlerts">
+                                                <input class="form-check-input" type="checkbox" id="emailAlerts" <?= $settings['enable_email_alerts'] == 1 ? 'checked' : '' ?>>
                                             </div>
                                         </div>
                                     </div>
@@ -584,7 +587,7 @@ if ($settingsData) {
                                         </div>
                                         <div class="setting-control">
                                             <div class="form-check form-switch custom-switch">
-                                                <input class="form-check-input" type="checkbox" id="desktopAlerts" checked>
+                                                <input class="form-check-input" type="checkbox" id="desktopAlerts" <?= $settings['enable_desktop_alerts'] == 1 ? 'checked' : '' ?>>
                                             </div>
                                         </div>
                                     </div>
@@ -596,7 +599,7 @@ if ($settingsData) {
                                         </div>
                                         <div class="setting-control">
                                             <div class="form-check form-switch custom-switch">
-                                                <input class="form-check-input" type="checkbox" id="alertSound">
+                                                <input class="form-check-input" type="checkbox" id="alertSound" <?= $settings['alert_sound'] == 1 ? 'checked' : '' ?>>
                                             </div>
                                         </div>
                                     </div>
@@ -608,7 +611,7 @@ if ($settingsData) {
                                         </div>
                                         <div class="setting-control">
                                             <div class="form-check form-switch custom-switch">
-                                                <input class="form-check-input" type="checkbox" id="dailySummary">
+                                                <input class="form-check-input" type="checkbox" id="dailySummary" <?= $settings['daily_summary'] == 1 ? 'checked' : '' ?>>
                                             </div>
                                         </div>
                                     </div>
@@ -674,10 +677,11 @@ if ($settingsData) {
 
                                     <div class="mb-4">
                                         <label for="hybridApiKey" class="form-label">Hybrid Analysis API Key (Optional)</label>
-                                        <input type="text" class="form-control api-key-input" id="hybridApiKey" 
+                                        <input type="text" class="form-control api-key-input" id="hybridApiKey"
+                                               value="<?= htmlspecialchars($settings['hybrid_analysis_key']) ?>"
                                                placeholder="Enter your Hybrid Analysis API key">
                                         <small class="text-muted">
-                                            Get your free API key from 
+                                            Get your free API key from
                                             <a href="https://www.hybrid-analysis.com/apikeys/info" target="_blank">Hybrid Analysis</a>
                                         </small>
                                     </div>
@@ -1057,14 +1061,13 @@ if ($settingsData) {
 
         // ==================== API KEYS ====================
         function saveApiKeys() {
-            const vtKey = $('#vtApiKey').val();
             const hybridKey = $('#hybridApiKey').val();
-            
+
             $.ajax({
                 url: "<?= MDIR ?>save-api-keys",
                 method: "POST",
                 dataType: "json",
-                data: { virustotal: vtKey, hybrid: hybridKey },
+                data: { hybrid_analysis_key: hybridKey },
                 success: function(response) {
                     if (response.success) {
                         showToast('Success', 'API keys saved successfully', 'success');

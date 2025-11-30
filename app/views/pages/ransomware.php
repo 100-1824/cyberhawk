@@ -736,9 +736,24 @@ if (strpos($uri, $basePath) === 0) {
                     $('#threatsDetected').text(data.threats_detected || 0);
                     $('#quarantinedFiles').text(data.quarantined || 0);
                     $('#scanRate').text(Math.round(data.scan_rate || 0));
-                    
+
                     const progress = data.scan_progress || 0;
-                    $('#scanProgress').css('width', progress + '%');
+                    const progressBar = $('#scanProgress');
+
+                    // If monitoring is active and progress is 0, show animated bar
+                    if (monitoringActive && progress === 0) {
+                        progressBar.css('width', '100%');
+                        progressBar.addClass('progress-bar-animated');
+                    } else if (progress > 0) {
+                        // During actual scan, show percentage
+                        progressBar.css('width', progress + '%');
+                        progressBar.addClass('progress-bar-animated');
+                    } else {
+                        // Idle state
+                        progressBar.css('width', '0%');
+                        progressBar.removeClass('progress-bar-animated');
+                    }
+
                     $('#currentScanFile').text(data.current_file || 'Monitoring...');
                 },
                 error: function(xhr, status, error) {

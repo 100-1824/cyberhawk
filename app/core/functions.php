@@ -1730,17 +1730,16 @@ function generateRecommendations($threatRate, $alertCount, $malwareCount)
 }
 
 /**
- * Export report as PDF (requires TCPDF library)
- * Note: This is a placeholder - actual PDF generation requires additional library
+ * Export report as PDF
+ * Note: Uses browser's Print-to-PDF functionality instead of server-side PDF generation
  */
 function export_report_pdf()
 {
     header('Content-Type: application/json');
-    
-    // For now, return message to use print functionality
+
     echo json_encode([
         'success' => false,
-        'message' => 'PDF export requires additional library installation. Please use Print to PDF feature in browser.'
+        'message' => 'Please use the Print to PDF feature in your browser for PDF export.'
     ]);
 }
 

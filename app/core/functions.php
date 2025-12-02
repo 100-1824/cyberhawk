@@ -3664,7 +3664,7 @@ function get_validated_alerts()
                 $stats['filtered_alerts']++;
                 $stats['protocol_filtered'][] = [
                     'ip' => $sourceIP,
-                    'port' => "$srcPort→$dstPort",
+                    'port' => $srcPort . ':' . $dstPort,
                     'reason' => $filterReason
                 ];
                 continue;

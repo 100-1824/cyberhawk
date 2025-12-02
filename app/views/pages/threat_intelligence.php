@@ -444,234 +444,225 @@ if (strpos($uri, $basePath) === 0) {
 
         // ==================== THREAT FEEDS ====================
         function loadThreatFeeds() {
-            const threatFeeds = [
-                {
-                    id: 1,
-                    source: 'MISP Feed',
-                    threat: 'Distributed DoS Campaign',
-                    severity: 'critical',
-                    timestamp: new Date(Date.now() - 5*60000).toLocaleString()
-                },
-                {
-                    id: 2,
-                    source: 'VirusTotal',
-                    threat: 'New Ransomware Variant (Lockbit 3.0)',
-                    severity: 'critical',
-                    timestamp: new Date(Date.now() - 15*60000).toLocaleString()
-                },
-                {
-                    id: 3,
-                    source: 'Shodan',
-                    threat: 'Exposed Database Servers (SQLi)',
-                    severity: 'high',
-                    timestamp: new Date(Date.now() - 30*60000).toLocaleString()
-                },
-                {
-                    id: 4,
-                    source: 'ThreatFox',
-                    threat: 'Phishing Campaign - Microsoft Spoofing',
-                    severity: 'high',
-                    timestamp: new Date(Date.now() - 45*60000).toLocaleString()
-                },
-                {
-                    id: 5,
-                    source: 'MalwareBazaar',
-                    threat: 'Trojan.Emotet C2 Infrastructure',
-                    severity: 'critical',
-                    timestamp: new Date(Date.now() - 60*60000).toLocaleString()
-                }
-            ];
+            $.ajax({
+                url: 'assets/data/threat_feeds.json?_=' + Date.now(),
+                dataType: 'json',
+                success: function(threatFeeds) {
+                    if (!Array.isArray(threatFeeds) || threatFeeds.length === 0) {
+                        $('#threatFeedsList').html('<div class="text-center text-muted py-4"><i class="bi bi-info-circle"></i><p>No active threat feeds detected</p></div>');
+                        $('#totalThreats').text(0);
+                        $('#criticalThreats').text(0);
+                        return;
+                    }
 
-            let html = '';
-            threatFeeds.forEach(feed => {
-                const severityClass = `feed-item ${feed.severity}`;
-                const badgeClass = feed.severity === 'critical' ? 'threat-level-critical' : 'threat-level-high';
-                
-                html += `
-                    <div class="${severityClass}">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <h6 class="mb-1">${feed.threat}</h6>
-                                <small class="text-muted">Source: ${feed.source}</small>
+                    let html = '';
+                    threatFeeds.forEach(feed => {
+                        const severityClass = `feed-item ${feed.severity}`;
+                        const badgeClass = feed.severity === 'critical' ? 'threat-level-critical' :
+                                         feed.severity === 'high' ? 'threat-level-high' :
+                                         feed.severity === 'medium' ? 'threat-level-medium' : 'threat-level-low';
+
+                        html += `
+                            <div class="${severityClass}">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1">${feed.threat}</h6>
+                                        <small class="text-muted">Source: ${feed.source}</small>
+                                    </div>
+                                    <span class="${badgeClass}">${feed.severity.toUpperCase()}</span>
+                                </div>
+                                <small class="text-muted d-block mt-2">${feed.timestamp}</small>
                             </div>
-                            <span class="${badgeClass}">${feed.severity.toUpperCase()}</span>
-                        </div>
-                        <small class="text-muted d-block mt-2">${feed.timestamp}</small>
-                    </div>
-                `;
-            });
+                        `;
+                    });
 
-            $('#threatFeedsList').html(html);
-            $('#totalThreats').text(threatFeeds.length);
-            $('#criticalThreats').text(threatFeeds.filter(f => f.severity === 'critical').length);
+                    $('#threatFeedsList').html(html);
+                    $('#totalThreats').text(threatFeeds.length);
+                    $('#criticalThreats').text(threatFeeds.filter(f => f.severity === 'critical').length);
+                },
+                error: function() {
+                    $('#threatFeedsList').html('<div class="text-center text-muted py-4"><i class="bi bi-exclamation-triangle"></i><p>Unable to load threat feeds</p></div>');
+                    $('#totalThreats').text(0);
+                    $('#criticalThreats').text(0);
+                }
+            });
         }
 
         // ==================== THREAT ACTORS ====================
         function loadThreatActors() {
-            const threatActors = [
-                { name: 'Lazarus Group', country: 'North Korea', activity: 'Ransomware, Crypto Theft' },
-                { name: 'APT28 (Fancy Bear)', country: 'Russia', activity: 'Nation-State Attacks' },
-                { name: 'Emotet', country: 'Unknown', activity: 'Banking Trojan Distribution' },
-                { name: 'DarkSide', country: 'Eastern Europe', activity: 'Ransomware' },
-                { name: 'Conti', country: 'Russia', activity: 'Enterprise Ransomware' }
-            ];
+            $.ajax({
+                url: 'assets/data/threat_actors.json?_=' + Date.now(),
+                dataType: 'json',
+                success: function(threatActors) {
+                    if (!Array.isArray(threatActors) || threatActors.length === 0) {
+                        $('#threatActorsList').html('<div class="text-center text-muted py-4"><i class="bi bi-info-circle"></i><p>No threat actors tracked</p></div>');
+                        $('#threatActors').text(0);
+                        return;
+                    }
 
-            let html = '';
-            threatActors.forEach(actor => {
-                html += `
-                    <div class="intelligence-card card mb-3">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h6 class="mb-0">${actor.name}</h6>
-                                <span class="threat-actor-badge">${actor.country}</span>
+                    let html = '';
+                    threatActors.forEach(actor => {
+                        html += `
+                            <div class="intelligence-card card mb-3">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h6 class="mb-0">${actor.name}</h6>
+                                        <span class="threat-actor-badge">${actor.country}</span>
+                                    </div>
+                                    <p class="mb-0 small text-muted">${actor.activity}</p>
+                                </div>
                             </div>
-                            <p class="mb-0 small text-muted">${actor.activity}</p>
-                        </div>
-                    </div>
-                `;
-            });
+                        `;
+                    });
 
-            $('#threatActorsList').html(html);
-            $('#threatActors').text(threatActors.length);
+                    $('#threatActorsList').html(html);
+                    $('#threatActors').text(threatActors.length);
+                },
+                error: function() {
+                    $('#threatActorsList').html('<div class="text-center text-muted py-4"><i class="bi bi-exclamation-triangle"></i><p>Unable to load threat actors</p></div>');
+                    $('#threatActors').text(0);
+                }
+            });
         }
 
         // ==================== IOCs ====================
         function loadIOCs() {
-            // IP Addresses
-            const ips = [
-                { ip: '192.168.1.100', level: 'Critical', last: '2 minutes ago', conf: '99%' },
-                { ip: '10.0.0.50', level: 'High', last: '15 minutes ago', conf: '95%' },
-                { ip: '172.16.0.1', level: 'Medium', last: '1 hour ago', conf: '85%' },
-                { ip: '8.8.8.8', level: 'Low', last: '3 hours ago', conf: '70%' }
-            ];
+            $.ajax({
+                url: 'assets/data/iocs.json?_=' + Date.now(),
+                dataType: 'json',
+                success: function(data) {
+                    // IP Addresses
+                    const ips = data.ips || [];
+                    let ipHtml = '';
+                    if (ips.length === 0) {
+                        ipHtml = '<tr><td colspan="5" class="text-center text-muted">No malicious IPs detected</td></tr>';
+                    } else {
+                        ips.forEach(item => {
+                            const levelClass = `threat-level-${item.level.toLowerCase()}`;
+                            ipHtml += `
+                                <tr>
+                                    <td>${item.ip}</td>
+                                    <td><span class="${levelClass}">${item.level}</span></td>
+                                    <td>${item.last}</td>
+                                    <td>${item.conf}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="blockIOC('${item.ip}')">
+                                            <i class="bi bi-ban"></i> Block
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                    }
+                    $('#ipsBody').html(ipHtml);
 
-            let ipHtml = '';
-            ips.forEach(item => {
-                const levelClass = `threat-level-${item.level.toLowerCase()}`;
-                ipHtml += `
-                    <tr>
-                        <td>${item.ip}</td>
-                        <td><span class="${levelClass}">${item.level}</span></td>
-                        <td>${item.last}</td>
-                        <td>${item.conf}</td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-danger" onclick="blockIOC('${item.ip}')">
-                                <i class="bi bi-ban"></i> Block
-                            </button>
-                        </td>
-                    </tr>
-                `;
+                    // Domains
+                    const domains = data.domains || [];
+                    let domainHtml = '';
+                    if (domains.length === 0) {
+                        domainHtml = '<tr><td colspan="5" class="text-center text-muted">No malicious domains detected</td></tr>';
+                    } else {
+                        domains.forEach(item => {
+                            const levelClass = `threat-level-${item.level.toLowerCase()}`;
+                            domainHtml += `
+                                <tr>
+                                    <td>${item.domain}</td>
+                                    <td><span class="${levelClass}">${item.level}</span></td>
+                                    <td>${item.last}</td>
+                                    <td>${item.conf}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="blockIOC('${item.domain}')">
+                                            <i class="bi bi-ban"></i> Block
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                    }
+                    $('#domainsBody').html(domainHtml);
+
+                    // File Hashes
+                    const hashes = data.hashes || [];
+                    let hashHtml = '';
+                    if (hashes.length === 0) {
+                        hashHtml = '<tr><td colspan="5" class="text-center text-muted">No malicious hashes detected</td></tr>';
+                    } else {
+                        hashes.forEach(item => {
+                            const levelClass = `threat-level-${item.level.toLowerCase()}`;
+                            hashHtml += `
+                                <tr>
+                                    <td><code>${item.hash}</code></td>
+                                    <td><span class="${levelClass}">${item.level}</span></td>
+                                    <td>${item.type}</td>
+                                    <td>${item.last}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="viewHashDetails('${item.hash}')">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                    }
+                    $('#hashesBody').html(hashHtml);
+                },
+                error: function() {
+                    $('#ipsBody').html('<tr><td colspan="5" class="text-center text-muted">Unable to load IOC data</td></tr>');
+                    $('#domainsBody').html('<tr><td colspan="5" class="text-center text-muted">Unable to load IOC data</td></tr>');
+                    $('#hashesBody').html('<tr><td colspan="5" class="text-center text-muted">Unable to load IOC data</td></tr>');
+                }
             });
-            $('#ipsBody').html(ipHtml);
-
-            // Domains
-            const domains = [
-                { domain: 'malicious-c2.com', level: 'Critical', last: '5 minutes ago', conf: '98%' },
-                { domain: 'phishing-site.ru', level: 'High', last: '30 minutes ago', conf: '96%' }
-            ];
-
-            let domainHtml = '';
-            domains.forEach(item => {
-                const levelClass = `threat-level-${item.level.toLowerCase()}`;
-                domainHtml += `
-                    <tr>
-                        <td>${item.domain}</td>
-                        <td><span class="${levelClass}">${item.level}</span></td>
-                        <td>${item.last}</td>
-                        <td>${item.conf}</td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-danger" onclick="blockIOC('${item.domain}')">
-                                <i class="bi bi-ban"></i> Block
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            });
-            $('#domainsBody').html(domainHtml);
-
-            // File Hashes
-            const hashes = [
-                { hash: 'a1b2c3d4e5f6...', level: 'Critical', type: 'Ransomware', last: '10 minutes ago' },
-                { hash: 'f6e5d4c3b2a1...', level: 'High', type: 'Trojan', last: '2 hours ago' }
-            ];
-
-            let hashHtml = '';
-            hashes.forEach(item => {
-                const levelClass = `threat-level-${item.level.toLowerCase()}`;
-                hashHtml += `
-                    <tr>
-                        <td><code>${item.hash}</code></td>
-                        <td><span class="${levelClass}">${item.level}</span></td>
-                        <td>${item.type}</td>
-                        <td>${item.last}</td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary" onclick="viewHashDetails('${item.hash}')">
-                                <i class="bi bi-eye"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            });
-            $('#hashesBody').html(hashHtml);
         }
 
         // ==================== VULNERABILITIES ====================
         function loadVulnerabilities() {
-            const vulnerabilities = [
-                {
-                    id: 'CVE-2024-1086',
-                    title: 'Linux Kernel Privilege Escalation',
-                    score: 9.8,
-                    affected: 'Linux 6.0 - 6.7',
-                    status: 'Actively Exploited'
-                },
-                {
-                    id: 'CVE-2024-0567',
-                    title: 'Windows Remote Code Execution',
-                    score: 9.6,
-                    affected: 'Windows Server 2019-2022',
-                    status: 'Patches Available'
-                },
-                {
-                    id: 'CVE-2023-44487',
-                    title: 'HTTP/2 Rapid Reset Attack',
-                    score: 7.5,
-                    affected: 'Multiple HTTP/2 Implementations',
-                    status: 'Patched'
-                }
-            ];
+            $.ajax({
+                url: 'assets/data/vulnerabilities.json?_=' + Date.now(),
+                dataType: 'json',
+                success: function(vulnerabilities) {
+                    if (!Array.isArray(vulnerabilities) || vulnerabilities.length === 0) {
+                        $('#vulnerabilitiesList').html('<div class="text-center text-muted py-4"><i class="bi bi-info-circle"></i><p>No critical vulnerabilities detected</p></div>');
+                        $('#totalVulns').text(0);
+                        return;
+                    }
 
-            let html = '';
-            vulnerabilities.forEach(vuln => {
-                const scoreColor = vuln.score >= 9 ? '#dc3545' : vuln.score >= 7 ? '#fd7e14' : '#ffc107';
-                html += `
-                    <div class="card mb-3">
-                        <div class="card-body">
-                            <div class="row align-items-center">
-                                <div class="col-md-6">
-                                    <h6 class="mb-1">${vuln.id}</h6>
-                                    <p class="mb-2">${vuln.title}</p>
-                                    <small class="text-muted">Affected: ${vuln.affected}</small>
-                                </div>
-                                <div class="col-md-3">
-                                    <div style="text-align: center;">
-                                        <div class="vulnerability-score" style="color: ${scoreColor};">${vuln.score}</div>
-                                        <small class="text-muted">CVSS Score</small>
+                    let html = '';
+                    vulnerabilities.forEach(vuln => {
+                        const scoreColor = vuln.score >= 9 ? '#dc3545' : vuln.score >= 7 ? '#fd7e14' : '#ffc107';
+                        html += `
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-6">
+                                            <h6 class="mb-1">${vuln.id}</h6>
+                                            <p class="mb-2">${vuln.title}</p>
+                                            <small class="text-muted">Affected: ${vuln.affected}</small>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div style="text-align: center;">
+                                                <div class="vulnerability-score" style="color: ${scoreColor};">${vuln.score}</div>
+                                                <small class="text-muted">CVSS Score</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <span class="badge ${vuln.status === 'Actively Exploited' ? 'bg-danger' : vuln.status === 'Patches Available' ? 'bg-warning' : 'bg-success'}">
+                                                ${vuln.status}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="col-md-3">
-                                    <span class="badge ${vuln.status === 'Actively Exploited' ? 'bg-danger' : vuln.status === 'Patches Available' ? 'bg-warning' : 'bg-success'}">
-                                        ${vuln.status}
-                                    </span>
-                                </div>
                             </div>
-                        </div>
-                    </div>
-                `;
-            });
+                        `;
+                    });
 
-            $('#vulnerabilitiesList').html(html);
-            $('#totalVulns').text(vulnerabilities.length);
+                    $('#vulnerabilitiesList').html(html);
+                    $('#totalVulns').text(vulnerabilities.length);
+                },
+                error: function() {
+                    $('#vulnerabilitiesList').html('<div class="text-center text-muted py-4"><i class="bi bi-exclamation-triangle"></i><p>Unable to load vulnerabilities</p></div>');
+                    $('#totalVulns').text(0);
+                }
+            });
         }
 
         // ==================== UTILITY FUNCTIONS ====================

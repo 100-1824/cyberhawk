@@ -456,18 +456,24 @@ if (strpos($uri, $basePath) === 0) {
 
         // ==================== METRICS ====================
         function loadMetrics() {
-            const metrics = {
-                totalPackets: 152847,
-                activeFlows: 42,
-                totalBandwidth: 1250.5,
-                avgLatency: 12.3
-            };
-
-            $('#totalPackets').text(metrics.totalPackets.toLocaleString());
-            $('#activeFlows').text(metrics.activeFlows);
-            $('#totalBandwidth').text(metrics.totalBandwidth.toFixed(1) + ' MB');
-            $('#avgLatency').text(metrics.avgLatency.toFixed(1) + ' ms');
-            $('#connCounter').text(metrics.activeFlows + ' Live');
+            $.ajax({
+                url: 'assets/data/network_metrics.json?_=' + Date.now(),
+                dataType: 'json',
+                success: function(metrics) {
+                    $('#totalPackets').text(metrics.totalPackets ? metrics.totalPackets.toLocaleString() : '0');
+                    $('#activeFlows').text(metrics.activeFlows || 0);
+                    $('#totalBandwidth').text(metrics.totalBandwidth ? metrics.totalBandwidth.toFixed(1) + ' MB' : '0 MB');
+                    $('#avgLatency').text(metrics.avgLatency ? metrics.avgLatency.toFixed(1) + ' ms' : '0 ms');
+                    $('#connCounter').text((metrics.activeFlows || 0) + ' Live');
+                },
+                error: function() {
+                    $('#totalPackets').text('0');
+                    $('#activeFlows').text('0');
+                    $('#totalBandwidth').text('0 MB');
+                    $('#avgLatency').text('0 ms');
+                    $('#connCounter').text('0 Live');
+                }
+            });
         }
 
         // ==================== BANDWIDTH CHART ====================
@@ -476,34 +482,68 @@ if (strpos($uri, $basePath) === 0) {
             const ctx = document.getElementById('bandwidthChart');
             if (!ctx) return;
 
-            const data = {
-                labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '23:59'],
-                datasets: [{
-                    label: 'Upload (MB)',
-                    data: [100, 150, 200, 250, 300, 280, 180],
-                    borderColor: '#17a2b8',
-                    backgroundColor: 'rgba(23, 162, 184, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }, {
-                    label: 'Download (MB)',
-                    data: [200, 280, 350, 420, 380, 290, 220],
-                    borderColor: '#0c5460',
-                    backgroundColor: 'rgba(12, 84, 96, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }]
-            };
+            $.ajax({
+                url: 'assets/data/network_bandwidth.json?_=' + Date.now(),
+                dataType: 'json',
+                success: function(bandwidth) {
+                    const data = {
+                        labels: bandwidth.labels && bandwidth.labels.length > 0 ? bandwidth.labels : ['No data'],
+                        datasets: [{
+                            label: 'Upload (MB)',
+                            data: bandwidth.upload && bandwidth.upload.length > 0 ? bandwidth.upload : [0],
+                            borderColor: '#17a2b8',
+                            backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }, {
+                            label: 'Download (MB)',
+                            data: bandwidth.download && bandwidth.download.length > 0 ? bandwidth.download : [0],
+                            borderColor: '#0c5460',
+                            backgroundColor: 'rgba(12, 84, 96, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    };
 
-            if (bandwidthChart) bandwidthChart.destroy();
-            bandwidthChart = new Chart(ctx, {
-                type: 'line',
-                data: data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: true } },
-                    scales: { y: { beginAtZero: true } }
+                    if (bandwidthChart) bandwidthChart.destroy();
+                    bandwidthChart = new Chart(ctx, {
+                        type: 'line',
+                        data: data,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: true } },
+                            scales: { y: { beginAtZero: true } }
+                        }
+                    });
+                },
+                error: function() {
+                    const data = {
+                        labels: ['No data'],
+                        datasets: [{
+                            label: 'Upload (MB)',
+                            data: [0],
+                            borderColor: '#17a2b8',
+                            backgroundColor: 'rgba(23, 162, 184, 0.1)'
+                        }, {
+                            label: 'Download (MB)',
+                            data: [0],
+                            borderColor: '#0c5460',
+                            backgroundColor: 'rgba(12, 84, 96, 0.1)'
+                        }]
+                    };
+
+                    if (bandwidthChart) bandwidthChart.destroy();
+                    bandwidthChart = new Chart(ctx, {
+                        type: 'line',
+                        data: data,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: true } },
+                            scales: { y: { beginAtZero: true } }
+                        }
+                    });
                 }
             });
         }
@@ -514,156 +554,224 @@ if (strpos($uri, $basePath) === 0) {
             const ctx = document.getElementById('protocolChart');
             if (!ctx) return;
 
-            const data = {
-                labels: ['TCP', 'UDP', 'ICMP', 'Other'],
-                datasets: [{
-                    data: [55, 30, 10, 5],
-                    backgroundColor: ['#17a2b8', '#0c5460', '#20c997', '#6c757d']
-                }]
-            };
+            $.ajax({
+                url: 'assets/data/network_protocols.json?_=' + Date.now(),
+                dataType: 'json',
+                success: function(protocols) {
+                    const data = {
+                        labels: ['TCP', 'UDP', 'ICMP', 'Other'],
+                        datasets: [{
+                            data: [
+                                protocols.TCP || 0,
+                                protocols.UDP || 0,
+                                protocols.ICMP || 0,
+                                protocols.Other || 0
+                            ],
+                            backgroundColor: ['#17a2b8', '#0c5460', '#20c997', '#6c757d']
+                        }]
+                    };
 
-            if (protocolChart) protocolChart.destroy();
-            protocolChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'right' } }
+                    if (protocolChart) protocolChart.destroy();
+                    protocolChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: data,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { position: 'right' } }
+                        }
+                    });
+                },
+                error: function() {
+                    const data = {
+                        labels: ['No Data'],
+                        datasets: [{
+                            data: [1],
+                            backgroundColor: ['#e9ecef']
+                        }]
+                    };
+
+                    if (protocolChart) protocolChart.destroy();
+                    protocolChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: data,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { position: 'right' } }
+                        }
+                    });
                 }
             });
         }
 
         // ==================== TOP TALKERS ====================
         function loadTopTalkers() {
-            const talkers = [
-                { ip: '192.168.1.100', packets: 45000, bytes: 5200000, % : 28 },
-                { ip: '10.0.0.50', packets: 32000, bytes: 3100000, % : 20 },
-                { ip: '172.16.0.1', packets: 28000, bytes: 2800000, % : 18 },
-                { ip: '8.8.8.8', packets: 22000, bytes: 2100000, % : 14 },
-                { ip: '1.1.1.1', packets: 18000, bytes: 1700000, % : 12 }
-            ];
+            $.ajax({
+                url: 'assets/data/network_talkers.json?_=' + Date.now(),
+                dataType: 'json',
+                success: function(talkers) {
+                    if (!Array.isArray(talkers) || talkers.length === 0) {
+                        $('#topTalkersList').html('<p class="text-muted text-center">No network traffic detected</p>');
+                        return;
+                    }
 
-            let html = '';
-            talkers.forEach(talker => {
-                html += `
-                    <div class="flow-card card mb-2">
-                        <div class="card-body p-3">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <strong>${talker.ip}</strong>
-                                <span class="protocol-badge">${talker.packets.toLocaleString()} packets</span>
+                    let html = '';
+                    talkers.forEach(talker => {
+                        html += `
+                            <div class="flow-card card mb-2">
+                                <div class="card-body p-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <strong>${talker.ip}</strong>
+                                        <span class="protocol-badge">${talker.packets.toLocaleString()} packets</span>
+                                    </div>
+                                    <div class="bandwidth-bar" style="width: ${talker.percent}%"></div>
+                                    <small class="text-muted">Data: ${(talker.bytes / 1000000).toFixed(1)} MB (${talker.percent}%)</small>
+                                </div>
                             </div>
-                            <div class="bandwidth-bar" style="width: ${talker['%']}%"></div>
-                            <small class="text-muted">Data: ${(talker.bytes / 1000000).toFixed(1)} MB (${talker['%']}%)</small>
-                        </div>
-                    </div>
-                `;
-            });
+                        `;
+                    });
 
-            $('#topTalkersList').html(html);
+                    $('#topTalkersList').html(html);
+                },
+                error: function() {
+                    $('#topTalkersList').html('<p class="text-muted text-center">Unable to load network traffic data</p>');
+                }
+            });
         }
 
         // ==================== BANDWIDTH BY PROTOCOL ====================
         function loadBandwidthByProtocol() {
-            const protocols = [
-                { name: 'TCP', bandwidth: 850, color: '#17a2b8' },
-                { name: 'UDP', bandwidth: 320, color: '#0c5460' },
-                { name: 'ICMP', bandwidth: 65, color: '#20c997' },
-                { name: 'Other', bandwidth: 15, color: '#6c757d' }
-            ];
+            $.ajax({
+                url: 'assets/data/network_protocol_bandwidth.json?_=' + Date.now(),
+                dataType: 'json',
+                success: function(protocols) {
+                    if (!Array.isArray(protocols) || protocols.length === 0) {
+                        $('#bandwidthByProtocol').html('<p class="text-muted text-center">No protocol bandwidth data</p>');
+                        return;
+                    }
 
-            let html = '';
-            protocols.forEach(proto => {
-                const percentage = (proto.bandwidth / 1250) * 100;
-                html += `
-                    <div class="bandwidth-usage">
-                        <div class="bandwidth-label">${proto.name}</div>
-                        <div class="bandwidth-bar-container">
-                            <div class="bandwidth-bar-fill" style="width: ${percentage}%; background: ${proto.color};"></div>
-                        </div>
-                        <div class="bandwidth-value">${proto.bandwidth} MB</div>
-                    </div>
-                `;
+                    let totalBandwidth = protocols.reduce((sum, p) => sum + p.bandwidth, 0);
+                    if (totalBandwidth === 0) totalBandwidth = 1;
+
+                    let html = '';
+                    protocols.forEach(proto => {
+                        const percentage = (proto.bandwidth / totalBandwidth) * 100;
+                        html += `
+                            <div class="bandwidth-usage">
+                                <div class="bandwidth-label">${proto.name}</div>
+                                <div class="bandwidth-bar-container">
+                                    <div class="bandwidth-bar-fill" style="width: ${percentage}%; background: ${proto.color};"></div>
+                                </div>
+                                <div class="bandwidth-value">${proto.bandwidth} MB</div>
+                            </div>
+                        `;
+                    });
+
+                    $('#bandwidthByProtocol').html(html);
+                },
+                error: function() {
+                    $('#bandwidthByProtocol').html('<p class="text-muted text-center">Unable to load protocol bandwidth</p>');
+                }
             });
-
-            $('#bandwidthByProtocol').html(html);
         }
 
         // ==================== ACTIVE CONNECTIONS ====================
         function loadActiveConnections() {
-            const connections = [
-                { src: '192.168.1.100:54321', dst: '8.8.8.8:443', proto: 'TCP', packets: 450, status: 'Active' },
-                { src: '10.0.0.50:5353', dst: '224.0.0.251:5353', proto: 'UDP', packets: 125, status: 'Active' },
-                { src: '172.16.0.1:22', dst: '203.0.113.45:55000', proto: 'TCP', packets: 89, status: 'Active' },
-                { src: '192.168.1.101:3000', dst: '192.168.1.50:80', proto: 'TCP', packets: 234, status: 'Active' }
-            ];
+            $.ajax({
+                url: 'assets/data/network_connections.json?_=' + Date.now(),
+                dataType: 'json',
+                success: function(connections) {
+                    if (!Array.isArray(connections) || connections.length === 0) {
+                        $('#activeConnectionsList').html('<p class="text-muted text-center">No active connections</p>');
+                        return;
+                    }
 
-            let html = '';
-            connections.forEach(conn => {
-                html += `
-                    <div class="connection-flow">
-                        <span>${conn.src}</span>
-                        <span class="arrow">→</span>
-                        <span>${conn.dst}</span>
-                        <span class="ms-auto">
-                            <span class="protocol-badge">${conn.proto}</span>
-                            <span class="badge bg-success">${conn.packets}</span>
-                        </span>
-                    </div>
-                `;
+                    let html = '';
+                    connections.forEach(conn => {
+                        html += `
+                            <div class="connection-flow">
+                                <span>${conn.src}</span>
+                                <span class="arrow">→</span>
+                                <span>${conn.dst}</span>
+                                <span class="ms-auto">
+                                    <span class="protocol-badge">${conn.proto}</span>
+                                    <span class="badge bg-success">${conn.packets}</span>
+                                </span>
+                            </div>
+                        `;
+                    });
+
+                    $('#activeConnectionsList').html(html);
+                },
+                error: function() {
+                    $('#activeConnectionsList').html('<p class="text-muted text-center">Unable to load connections</p>');
+                }
             });
-
-            $('#activeConnectionsList').html(html);
         }
 
         // ==================== HEALTH METRICS ====================
         function loadHealthMetrics() {
-            const metrics = [
-                { label: 'Packet Loss', value: '0.02%', status: 'good' },
-                { label: 'Jitter', value: '1.2 ms', status: 'good' },
-                { label: 'DNS Resolution', value: '12 ms', status: 'good' },
-                { label: 'TCP Retransmission', value: '0.1%', status: 'good' }
-            ];
+            $.ajax({
+                url: 'assets/data/network_health.json?_=' + Date.now(),
+                dataType: 'json',
+                success: function(metrics) {
+                    if (!Array.isArray(metrics) || metrics.length === 0) {
+                        $('#healthMetrics').html('<p class="text-muted text-center">No health metrics available</p>');
+                        return;
+                    }
 
-            let html = '';
-            metrics.forEach(metric => {
-                const indicatorClass = `latency-${metric.status}`;
-                html += `
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span>${metric.label}</span>
-                        <span class="latency-indicator ${indicatorClass}">${metric.value}</span>
-                    </div>
-                `;
+                    let html = '';
+                    metrics.forEach(metric => {
+                        const indicatorClass = `latency-${metric.status}`;
+                        html += `
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span>${metric.label}</span>
+                                <span class="latency-indicator ${indicatorClass}">${metric.value}</span>
+                            </div>
+                        `;
+                    });
+
+                    $('#healthMetrics').html(html);
+                },
+                error: function() {
+                    $('#healthMetrics').html('<p class="text-muted text-center">Unable to load health metrics</p>');
+                }
             });
-
-            $('#healthMetrics').html(html);
         }
 
         // ==================== PACKET ACTIVITY ====================
         function loadPacketActivity() {
-            const packets = [
-                { time: new Date(Date.now() - 0*1000).toLocaleTimeString(), src: '192.168.1.100', dst: '8.8.8.8', proto: 'TCP', size: 1500, type: 'normal' },
-                { time: new Date(Date.now() - 2*1000).toLocaleTimeString(), src: '10.0.0.50', dst: '224.0.0.251', proto: 'UDP', size: 256, type: 'normal' },
-                { time: new Date(Date.now() - 5*1000).toLocaleTimeString(), src: '172.16.0.1', dst: '203.0.113.45', proto: 'TCP', size: 5000, type: 'spike' },
-                { time: new Date(Date.now() - 8*1000).toLocaleTimeString(), src: '192.168.1.101', dst: '192.168.1.50', proto: 'TCP', size: 1024, type: 'normal' }
-            ];
+            $.ajax({
+                url: 'assets/data/network_packets.json?_=' + Date.now(),
+                dataType: 'json',
+                success: function(packets) {
+                    if (!Array.isArray(packets) || packets.length === 0) {
+                        $('#packetActivityList').html('<p class="text-muted text-center">No packet activity detected</p>');
+                        return;
+                    }
 
-            let html = '';
-            packets.forEach(pkt => {
-                const itemClass = pkt.type === 'spike' ? 'packet-item spike' : 'packet-item';
-                html += `
-                    <div class="${itemClass}">
-                        <div class="d-flex justify-content-between mb-1">
-                            <strong>${pkt.time}</strong>
-                            <span class="protocol-badge">${pkt.proto}</span>
-                        </div>
-                        <small class="d-block">${pkt.src} → ${pkt.dst}</small>
-                        <small class="text-muted">Size: ${pkt.size} bytes</small>
-                    </div>
-                `;
+                    let html = '';
+                    packets.forEach(pkt => {
+                        const itemClass = pkt.type === 'spike' ? 'packet-item spike' : 'packet-item';
+                        html += `
+                            <div class="${itemClass}">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <strong>${pkt.time}</strong>
+                                    <span class="protocol-badge">${pkt.proto}</span>
+                                </div>
+                                <small class="d-block">${pkt.src} → ${pkt.dst}</small>
+                                <small class="text-muted">Size: ${pkt.size} bytes</small>
+                            </div>
+                        `;
+                    });
+
+                    $('#packetActivityList').html(html);
+                },
+                error: function() {
+                    $('#packetActivityList').html('<p class="text-muted text-center">Unable to load packet activity</p>');
+                }
             });
-
-            $('#packetActivityList').html(html);
         }
 
         // ==================== FILTER FUNCTIONS ====================

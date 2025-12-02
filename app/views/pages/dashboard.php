@@ -1235,7 +1235,5 @@ if (strpos($uri, $basePath) === 0) {
             logContainer.scrollTop = logContainer.scrollHeight;
         }
     }
-
-    // Update system status (placeholder for future implementation)
 </script>
 </html>

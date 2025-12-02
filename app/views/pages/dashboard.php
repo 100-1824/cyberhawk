@@ -191,7 +191,7 @@ if (strpos($uri, $basePath) === 0) {
                                         <h6 class="text-center mb-2">Threat Level</h6>
                                         <canvas id="threatGauge" class="threat-indicator"></canvas>
                                         <div class="mt-2 text-center">
-                                            <div class="security-score" id="securityScore">85</div>
+                                            <div class="security-score" id="securityScore">0</div>
                                             <small class="text-muted">Security Score</small>
                                         </div>
                                     </div>
@@ -244,7 +244,7 @@ if (strpos($uri, $basePath) === 0) {
                                 <!-- <button type="button" id="startModelBtn" class="btn btn-success" onclick="startModel()">
                                     <i class="bi bi-play me-2"></i>Start Model
                                 </button> -->
-                                <button id="stopLogsBtn" type="button" class="btn btn-danger" onclick="stopLogs()">
+                                <button id="stopLogsBtn" type="button" class="btn btn-danger" onclick="stopLogs()" disabled>
                                     <i class="bi bi-stop-circle me-2"></i>Stop Logs
                                 </button>
                             </div>
@@ -1057,6 +1057,7 @@ if (strpos($uri, $basePath) === 0) {
     function startLogs() {
         $("#logsLoadingSpinner").removeClass("d-none");
         $("#startLogsBtn").prop('disabled', true);
+        $("#stopLogsBtn").prop('disabled', false);
 
         const logContainer = document.getElementById('logContainer');
         logContainer.textContent = "[INFO] Starting system...\n";
@@ -1147,6 +1148,7 @@ if (strpos($uri, $basePath) === 0) {
     function stopLogs() {
         $("#logsLoadingSpinner").removeClass("d-none");
         $("#stopLogsBtn").prop('disabled', true);
+        $("#startLogsBtn").prop('disabled', false);
 
         const logContainer = document.getElementById('logContainer');
         logContainer.textContent += "[INFO] Stopping traffic sniffer...\n[INFO] Stopping model...\n";
@@ -1163,13 +1165,13 @@ if (strpos($uri, $basePath) === 0) {
                     logContainer.textContent += `[ERROR] Failed to stop: ${response.message}\n`;
                 }
                 $("#logsLoadingSpinner").addClass("d-none");
-                $("#stopLogsBtn").prop('disabled', false);
+                $("#stopLogsBtn").prop('disabled', true);
                 logContainer.scrollTop = logContainer.scrollHeight;
             },
             error: function(xhr, status, err) {
                 logContainer.textContent += `[ERROR] ${status} - ${err}\n`;
                 $("#logsLoadingSpinner").addClass("d-none");
-                $("#stopLogsBtn").prop('disabled', false);
+                $("#stopLogsBtn").prop('disabled', true);
                 logContainer.scrollTop = logContainer.scrollHeight;
             }
         });

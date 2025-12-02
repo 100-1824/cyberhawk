@@ -3230,4 +3230,416 @@ function handle_clear_all_notifications()
 }
 
 
+// ==================== ADD TO app/core/views.php ====================
+
+/**
+ * Threat Intelligence Page Loader
+ */
+function get_threat_intelligence_page()
+{
+    if (!isset($_SESSION['user_id'])) {
+        header("Location: " . MDIR . "login");
+        exit;
+    }
+    require 'app/views/pages/threat_intelligence.php';
+}
+
+/**
+ * Network Analytics Page Loader
+ */
+function get_network_analytics_page()
+{
+    if (!isset($_SESSION['user_id'])) {
+        header("Location: " . MDIR . "login");
+        exit;
+    }
+    require 'app/views/pages/network_analytics.php';
+}
+
+// ==================== ADD TO app/core/functions.php ====================
+
+// ==================== THREAT INTELLIGENCE FUNCTIONS ====================
+
+/**
+ * Get threat intelligence feeds
+ */
+function get_threat_feeds()
+{
+    header('Content-Type: application/json');
+    
+    $projectDir = rtrim(DIR, '/\\');
+    $feedsFile = $projectDir . '/assets/data/threat_feeds.json';
+    
+    // Load or create threat feeds
+    if (file_exists($feedsFile)) {
+        $feeds = json_decode(file_get_contents($feedsFile), true);
+    } else {
+        $feeds = generateDefaultThreatFeeds();
+        saveThreatFeeds($feeds);
+    }
+    
+    echo json_encode($feeds);
+}
+
+/**
+ * Generate default threat feeds
+ */
+function generateDefaultThreatFeeds()
+{
+    return [
+        [
+            'id' => 1,
+            'source' => 'MISP Feed',
+            'threat' => 'Distributed DoS Campaign',
+            'severity' => 'critical',
+            'timestamp' => date('Y-m-d H:i:s', time() - 300),
+            'count' => 1500
+        ],
+        [
+            'id' => 2,
+            'source' => 'VirusTotal',
+            'threat' => 'New Ransomware Variant (Lockbit 3.0)',
+            'severity' => 'critical',
+            'timestamp' => date('Y-m-d H:i:s', time() - 900),
+            'count' => 250
+        ],
+        [
+            'id' => 3,
+            'source' => 'Shodan',
+            'threat' => 'Exposed Database Servers (SQLi)',
+            'severity' => 'high',
+            'timestamp' => date('Y-m-d H:i:s', time() - 1800),
+            'count' => 42
+        ]
+    ];
+}
+
+/**
+ * Get threat actors
+ */
+function get_threat_actors()
+{
+    header('Content-Type: application/json');
+    
+    $actors = [
+        [
+            'id' => 1,
+            'name' => 'Lazarus Group',
+            'country' => 'North Korea',
+            'activity' => 'Ransomware, Crypto Theft',
+            'lastSeen' => date('Y-m-d H:i:s'),
+            'campaigns' => 5
+        ],
+        [
+            'id' => 2,
+            'name' => 'APT28 (Fancy Bear)',
+            'country' => 'Russia',
+            'activity' => 'Nation-State Attacks',
+            'lastSeen' => date('Y-m-d H:i:s'),
+            'campaigns' => 12
+        ],
+        [
+            'id' => 3,
+            'name' => 'Emotet',
+            'country' => 'Unknown',
+            'activity' => 'Banking Trojan Distribution',
+            'lastSeen' => date('Y-m-d H:i:s'),
+            'campaigns' => 8
+        ]
+    ];
+    
+    echo json_encode($actors);
+}
+
+/**
+ * Get Indicators of Compromise
+ */
+function get_iocs()
+{
+    header('Content-Type: application/json');
+    
+    $type = $_GET['type'] ?? 'all'; // all, ip, domain, hash
+    
+    $iocs = [
+        'ips' => [
+            ['ip' => '192.168.1.100', 'level' => 'critical', 'lastSeen' => '2 minutes ago', 'confidence' => 99],
+            ['ip' => '10.0.0.50', 'level' => 'high', 'lastSeen' => '15 minutes ago', 'confidence' => 95]
+        ],
+        'domains' => [
+            ['domain' => 'malicious-c2.com', 'level' => 'critical', 'lastSeen' => '5 minutes ago', 'confidence' => 98],
+            ['domain' => 'phishing-site.ru', 'level' => 'high', 'lastSeen' => '30 minutes ago', 'confidence' => 96]
+        ],
+        'hashes' => [
+            ['hash' => 'a1b2c3d4e5f6...', 'level' => 'critical', 'type' => 'Ransomware', 'lastSeen' => '10 minutes ago'],
+            ['hash' => 'f6e5d4c3b2a1...', 'level' => 'high', 'type' => 'Trojan', 'lastSeen' => '2 hours ago']
+        ]
+    ];
+    
+    if ($type === 'all') {
+        echo json_encode($iocs);
+    } else {
+        echo json_encode(isset($iocs[$type . 's']) ? $iocs[$type . 's'] : []);
+    }
+}
+
+/**
+ * Get critical vulnerabilities
+ */
+function get_vulnerabilities()
+{
+    header('Content-Type: application/json');
+    
+    $vulnerabilities = [
+        [
+            'id' => 'CVE-2024-1086',
+            'title' => 'Linux Kernel Privilege Escalation',
+            'score' => 9.8,
+            'affected' => 'Linux 6.0 - 6.7',
+            'status' => 'Actively Exploited',
+            'description' => 'Critical privilege escalation vulnerability in Linux kernel'
+        ],
+        [
+            'id' => 'CVE-2024-0567',
+            'title' => 'Windows Remote Code Execution',
+            'score' => 9.6,
+            'affected' => 'Windows Server 2019-2022',
+            'status' => 'Patches Available',
+            'description' => 'Remote code execution vulnerability in Windows'
+        ],
+        [
+            'id' => 'CVE-2023-44487',
+            'title' => 'HTTP/2 Rapid Reset Attack',
+            'score' => 7.5,
+            'affected' => 'Multiple HTTP/2 Implementations',
+            'status' => 'Patched',
+            'description' => 'Denial of service vulnerability in HTTP/2 protocol'
+        ]
+    ];
+    
+    echo json_encode($vulnerabilities);
+}
+
+/**
+ * Block an IOC
+ */
+function block_ioc()
+{
+    header('Content-Type: application/json');
+    
+    $ioc = $_POST['ioc'] ?? '';
+    $type = $_POST['type'] ?? 'ip';
+    
+    if (empty($ioc)) {
+        echo json_encode(['success' => false, 'message' => 'IOC is required']);
+        return;
+    }
+    
+    // Save blocked IOC
+    $projectDir = rtrim(DIR, '/\\');
+    $blockedFile = $projectDir . '/assets/data/blocked_iocs.json';
+    
+    $blocked = file_exists($blockedFile) ? json_decode(file_get_contents($blockedFile), true) : [];
+    
+    $blocked[] = [
+        'ioc' => $ioc,
+        'type' => $type,
+        'blockedAt' => date('Y-m-d H:i:s'),
+        'reason' => 'User blocked',
+        'status' => 'active'
+    ];
+    
+    file_put_contents($blockedFile, json_encode($blocked, JSON_PRETTY_PRINT));
+    
+    echo json_encode(['success' => true, 'message' => "IOC {$ioc} has been blocked"]);
+}
+
+/**
+ * Whitelist an IOC
+ */
+function whitelist_ioc()
+{
+    header('Content-Type: application/json');
+    
+    $ioc = $_POST['ioc'] ?? '';
+    
+    if (empty($ioc)) {
+        echo json_encode(['success' => false, 'message' => 'IOC is required']);
+        return;
+    }
+    
+    $projectDir = rtrim(DIR, '/\\');
+    $whitelistFile = $projectDir . '/assets/data/whitelisted_iocs.json';
+    
+    $whitelist = file_exists($whitelistFile) ? json_decode(file_get_contents($whitelistFile), true) : [];
+    
+    $whitelist[] = [
+        'ioc' => $ioc,
+        'whitelistedAt' => date('Y-m-d H:i:s'),
+        'reason' => 'False positive'
+    ];
+    
+    file_put_contents($whitelistFile, json_encode($whitelist, JSON_PRETTY_PRINT));
+    
+    echo json_encode(['success' => true, 'message' => "IOC {$ioc} has been whitelisted"]);
+}
+
+// ==================== NETWORK ANALYTICS FUNCTIONS ====================
+
+/**
+ * Get network metrics
+ */
+function get_network_metrics()
+{
+    header('Content-Type: application/json');
+    
+    $projectDir = rtrim(DIR, '/\\');
+    $trafficFile = $projectDir . '/assets/data/traffic_log.json';
+    
+    $metrics = [
+        'totalPackets' => 0,
+        'activeFlows' => 0,
+        'totalBandwidth' => 0,
+        'avgLatency' => 0
+    ];
+    
+    if (file_exists($trafficFile)) {
+        $flows = json_decode(file_get_contents($trafficFile), true);
+        
+        if (is_array($flows)) {
+            $metrics['totalPackets'] = count($flows);
+            $metrics['activeFlows'] = count(array_unique(array_column($flows, 'Flow ID')));
+            $metrics['totalBandwidth'] = array_sum(array_column($flows, 'Total Length of Fwd Packets')) / 1000000;
+            
+            $latencies = array_column($flows, 'Flow Duration');
+            $metrics['avgLatency'] = !empty($latencies) ? array_sum($latencies) / count($latencies) : 0;
+        }
+    }
+    
+    echo json_encode($metrics);
+}
+
+/**
+ * Get bandwidth data
+ */
+function get_bandwidth_data()
+{
+    header('Content-Type: application/json');
+    
+    $data = [
+        'labels' => ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '23:59'],
+        'upload' => [100, 150, 200, 250, 300, 280, 180],
+        'download' => [200, 280, 350, 420, 380, 290, 220]
+    ];
+    
+    echo json_encode($data);
+}
+
+/**
+ * Get protocol statistics
+ */
+function get_protocol_stats()
+{
+    header('Content-Type: application/json');
+    
+    $stats = [
+        'protocols' => [
+            ['name' => 'TCP', 'percentage' => 55, 'packets' => 84000],
+            ['name' => 'UDP', 'percentage' => 30, 'packets' => 45000],
+            ['name' => 'ICMP', 'percentage' => 10, 'packets' => 15000],
+            ['name' => 'Other', 'percentage' => 5, 'packets' => 7500]
+        ]
+    ];
+    
+    echo json_encode($stats);
+}
+
+/**
+ * Get top talkers
+ */
+function get_top_talkers()
+{
+    header('Content-Type: application/json');
+    
+    $talkers = [
+        ['ip' => '192.168.1.100', 'packets' => 45000, 'bytes' => 5200000, 'percentage' => 28],
+        ['ip' => '10.0.0.50', 'packets' => 32000, 'bytes' => 3100000, 'percentage' => 20],
+        ['ip' => '172.16.0.1', 'packets' => 28000, 'bytes' => 2800000, 'percentage' => 18],
+        ['ip' => '8.8.8.8', 'packets' => 22000, 'bytes' => 2100000, 'percentage' => 14],
+        ['ip' => '1.1.1.1', 'packets' => 18000, 'bytes' => 1700000, 'percentage' => 12]
+    ];
+    
+    echo json_encode($talkers);
+}
+
+/**
+ * Get active connections
+ */
+function get_active_connections()
+{
+    header('Content-Type: application/json');
+    
+    $connections = [
+        [
+            'src' => '192.168.1.100:54321',
+            'dst' => '8.8.8.8:443',
+            'proto' => 'TCP',
+            'packets' => 450,
+            'status' => 'Active',
+            'duration' => '5m 23s'
+        ],
+        [
+            'src' => '10.0.0.50:5353',
+            'dst' => '224.0.0.251:5353',
+            'proto' => 'UDP',
+            'packets' => 125,
+            'status' => 'Active',
+            'duration' => '2m 15s'
+        ]
+    ];
+    
+    echo json_encode($connections);
+}
+
+/**
+ * Get packet activity
+ */
+function get_packet_activity()
+{
+    header('Content-Type: application/json');
+    
+    $packets = [
+        [
+            'time' => date('H:i:s'),
+            'src' => '192.168.1.100',
+            'dst' => '8.8.8.8',
+            'proto' => 'TCP',
+            'size' => 1500,
+            'type' => 'normal'
+        ],
+        [
+            'time' => date('H:i:s', time() - 2),
+            'src' => '10.0.0.50',
+            'dst' => '224.0.0.251',
+            'proto' => 'UDP',
+            'size' => 256,
+            'type' => 'normal'
+        ]
+    ];
+    
+    echo json_encode($packets);
+}
+
+/**
+ * Helper: Save threat feeds to file
+ */
+function saveThreatFeeds($feeds)
+{
+    $projectDir = rtrim(DIR, '/\\');
+    $feedsFile = $projectDir . '/assets/data/threat_feeds.json';
+    
+    @mkdir(dirname($feedsFile), 0755, true);
+    file_put_contents($feedsFile, json_encode($feeds, JSON_PRETTY_PRINT));
+}
+
+
 ?>

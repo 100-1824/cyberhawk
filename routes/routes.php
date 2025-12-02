@@ -136,6 +136,27 @@ $r->addRoute('GET', MDIR . 'get-user-stats', checkSession('user_id', 'handle_get
     $r->addRoute('POST', MDIR . 'delete-notification', checkSession('user_id', 'handle_delete_notification'));
     $r->addRoute('POST', MDIR . 'clear-all-notifications', checkSession('user_id', 'handle_clear_all_notifications'));
 
+
+    // ADD THESE ROUTES TO YOUR routes/routes.php FILE
+
+// ==================== THREAT INTELLIGENCE ROUTES ====================
+$r->addRoute('GET', MDIR . 'threat-intelligence', checkSession('user_id', 'get_threat_intelligence_page'));
+$r->addRoute('GET', MDIR . 'get-threat-feeds', checkSession('user_id', 'get_threat_feeds'));
+$r->addRoute('GET', MDIR . 'get-threat-actors', checkSession('user_id', 'get_threat_actors'));
+$r->addRoute('GET', MDIR . 'get-iocs', checkSession('user_id', 'get_iocs'));
+$r->addRoute('GET', MDIR . 'get-vulnerabilities', checkSession('user_id', 'get_vulnerabilities'));
+$r->addRoute('POST', MDIR . 'block-ioc', checkSession('user_id', 'block_ioc'));
+$r->addRoute('POST', MDIR . 'whitelist-ioc', checkSession('user_id', 'whitelist_ioc'));
+
+// ==================== NETWORK ANALYTICS ROUTES ====================
+$r->addRoute('GET', MDIR . 'network-analytics', checkSession('user_id', 'get_network_analytics_page'));
+$r->addRoute('GET', MDIR . 'get-network-metrics', checkSession('user_id', 'get_network_metrics'));
+$r->addRoute('GET', MDIR . 'get-bandwidth-data', checkSession('user_id', 'get_bandwidth_data'));
+$r->addRoute('GET', MDIR . 'get-protocol-stats', checkSession('user_id', 'get_protocol_stats'));
+$r->addRoute('GET', MDIR . 'get-top-talkers', checkSession('user_id', 'get_top_talkers'));
+$r->addRoute('GET', MDIR . 'get-active-connections', checkSession('user_id', 'get_active_connections'));
+$r->addRoute('GET', MDIR . 'get-packet-activity', checkSession('user_id', 'get_packet_activity'));
+
     /**
      * GDPR Routes
      */
@@ -145,17 +166,17 @@ $r->addRoute('GET', MDIR . 'get-user-stats', checkSession('user_id', 'handle_get
      * Azure SSO Login Routes
      * File Location : app/core/Azure/functions.php
      */
-    $r->addRoute('GET', MDIR.'loginAzure', 'authenticate_azureuser');
-    $r->addRoute('GET', MDIR.'AzureCallback', 'authenticate_azurecallback');
-    $r->addRoute('GET', MDIR.'AzureError', 'authenticate_azure_error');
+    // $r->addRoute('GET', MDIR.'loginAzure', 'authenticate_azureuser');
+    // $r->addRoute('GET', MDIR.'AzureCallback', 'authenticate_azurecallback');
+    // $r->addRoute('GET', MDIR.'AzureError', 'authenticate_azure_error');
 
     /**
      * Contract Routes
      */
-    $r->addRoute('GET', MDIR . 'test-contracts', 'test_get_contracts');
+    // $r->addRoute('GET', MDIR . 'test-contracts', 'test_get_contracts');
 
     //Testing purpose
-    $r->addRoute('GET', MDIR.'test', 'testing');
+    // $r->addRoute('GET', MDIR.'test', 'testing');
 
     if(is_file('routes/test-routes.php'))
     {

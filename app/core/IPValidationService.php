@@ -379,16 +379,34 @@ class IPValidationService
     }
 
     /**
-     * Check if IP is private/internal
+     * Check if IP is private/internal/broadcast/reserved
+     * Returns true for IPs that should NOT be validated externally
      */
     private function isPrivateIP($ip)
     {
+        // Broadcast and special IPs that should NEVER be flagged as attacks
+        $special_ips = [
+            '0.0.0.0',           // Non-routable meta-address / DHCP discovery
+            '255.255.255.255',   // Broadcast address
+            '::',                // IPv6 unspecified
+            '::1',               // IPv6 loopback
+            'ff02::1',           // IPv6 multicast
+            'ff02::2'            // IPv6 multicast
+        ];
+
+        if (in_array($ip, $special_ips)) {
+            return true;
+        }
+
+        // Private IP ranges (RFC1918 and others)
         $private_ranges = [
-            ['10.0.0.0', '10.255.255.255'],
-            ['172.16.0.0', '172.31.255.255'],
-            ['192.168.0.0', '192.168.255.255'],
-            ['127.0.0.0', '127.255.255.255'],
-            ['169.254.0.0', '169.254.255.255']
+            ['10.0.0.0', '10.255.255.255'],        // Class A private
+            ['172.16.0.0', '172.31.255.255'],      // Class B private
+            ['192.168.0.0', '192.168.255.255'],    // Class C private
+            ['127.0.0.0', '127.255.255.255'],      // Loopback
+            ['169.254.0.0', '169.254.255.255'],    // Link-local
+            ['224.0.0.0', '239.255.255.255'],      // Multicast (Class D)
+            ['240.0.0.0', '255.255.255.255']       // Reserved (Class E)
         ];
 
         $ip_long = ip2long($ip);

@@ -23,7 +23,10 @@ if (strpos($uri, $basePath) === 0) {
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    
+    <script>
+        const LOGS_URL = "assets/data/traffic_log.json";
+    </script>
+
     <style>
         html, body {
             max-width: 100%;
@@ -457,14 +460,39 @@ if (strpos($uri, $basePath) === 0) {
         // ==================== METRICS ====================
         function loadMetrics() {
             $.ajax({
-                url: 'assets/data/network_metrics.json?_=' + Date.now(),
+                url: LOGS_URL + '?_=' + Date.now(),
                 dataType: 'json',
-                success: function(metrics) {
-                    $('#totalPackets').text(metrics.totalPackets ? metrics.totalPackets.toLocaleString() : '0');
-                    $('#activeFlows').text(metrics.activeFlows || 0);
-                    $('#totalBandwidth').text(metrics.totalBandwidth ? metrics.totalBandwidth.toFixed(1) + ' MB' : '0 MB');
-                    $('#avgLatency').text(metrics.avgLatency ? metrics.avgLatency.toFixed(1) + ' ms' : '0 ms');
-                    $('#connCounter').text((metrics.activeFlows || 0) + ' Live');
+                success: function(trafficData) {
+                    if (!Array.isArray(trafficData) || trafficData.length === 0) {
+                        $('#totalPackets').text('0');
+                        $('#activeFlows').text('0');
+                        $('#totalBandwidth').text('0 MB');
+                        $('#avgLatency').text('0 ms');
+                        $('#connCounter').text('0 Live');
+                        return;
+                    }
+
+                    // Calculate metrics from traffic data
+                    let totalPackets = 0;
+                    let totalBytes = 0;
+                    let totalDuration = 0;
+                    let flowCount = trafficData.length;
+
+                    trafficData.forEach(flow => {
+                        if (!flow) return;
+                        totalPackets += (parseInt(flow["Total Fwd Packets"]) || 0) + (parseInt(flow["Total Backward Packets"]) || 0);
+                        totalBytes += parseFloat(flow["Flow Bytes/s"]) || 0;
+                        totalDuration += parseFloat(flow["Flow Duration"]) || 0;
+                    });
+
+                    const totalBandwidthMB = totalBytes / 1000000;
+                    const avgLatency = totalDuration > 0 ? (totalDuration / flowCount) : 0;
+
+                    $('#totalPackets').text(totalPackets.toLocaleString());
+                    $('#activeFlows').text(flowCount);
+                    $('#totalBandwidth').text(totalBandwidthMB.toFixed(1) + ' MB');
+                    $('#avgLatency').text(avgLatency.toFixed(1) + ' ms');
+                    $('#connCounter').text(flowCount + ' Live');
                 },
                 error: function() {
                     $('#totalPackets').text('0');
@@ -478,26 +506,54 @@ if (strpos($uri, $basePath) === 0) {
 
         // ==================== BANDWIDTH CHART ====================
         let bandwidthChart = null;
+        let bandwidthHistory = { upload: [], download: [], labels: [] };
+
         function loadBandwidthChart() {
             const ctx = document.getElementById('bandwidthChart');
             if (!ctx) return;
 
             $.ajax({
-                url: 'assets/data/network_bandwidth.json?_=' + Date.now(),
+                url: LOGS_URL + '?_=' + Date.now(),
                 dataType: 'json',
-                success: function(bandwidth) {
+                success: function(trafficData) {
+                    // Calculate current upload/download from traffic data
+                    let totalFwd = 0;
+                    let totalBwd = 0;
+
+                    if (Array.isArray(trafficData)) {
+                        trafficData.forEach(flow => {
+                            if (!flow) return;
+                            totalFwd += parseFloat(flow["Total Fwd Packets"]) || 0;
+                            totalBwd += parseFloat(flow["Total Backward Packets"]) || 0;
+                        });
+                    }
+
+                    const uploadMB = (totalFwd / 1000).toFixed(1);
+                    const downloadMB = (totalBwd / 1000).toFixed(1);
+
+                    // Add to history (keep last 20 points)
+                    bandwidthHistory.upload.push(parseFloat(uploadMB));
+                    bandwidthHistory.download.push(parseFloat(downloadMB));
+                    bandwidthHistory.labels.push(new Date().toLocaleTimeString());
+
+                    if (bandwidthHistory.upload.length > 20) {
+                        bandwidthHistory.upload.shift();
+                        bandwidthHistory.download.shift();
+                        bandwidthHistory.labels.shift();
+                    }
+
                     const data = {
-                        labels: bandwidth.labels && bandwidth.labels.length > 0 ? bandwidth.labels : ['No data'],
+                        labels: bandwidthHistory.labels,
                         datasets: [{
-                            label: 'Upload (MB)',
-                            data: bandwidth.upload && bandwidth.upload.length > 0 ? bandwidth.upload : [0],
+                            label: 'Forward (KB)',
+                            data: bandwidthHistory.upload,
                             borderColor: '#17a2b8',
                             backgroundColor: 'rgba(23, 162, 184, 0.1)',
                             tension: 0.4,
                             fill: true
                         }, {
-                            label: 'Download (MB)',
-                            data: bandwidth.download && bandwidth.download.length > 0 ? bandwidth.download : [0],
+                            label: 'Backward (KB)',
+                            data: bandwidthHistory.download,
                             borderColor: '#0c5460',
                             backgroundColor: 'rgba(12, 84, 96, 0.1)',
                             tension: 0.4,
@@ -521,12 +577,12 @@ if (strpos($uri, $basePath) === 0) {
                     const data = {
                         labels: ['No data'],
                         datasets: [{
-                            label: 'Upload (MB)',
+                            label: 'Forward (KB)',
                             data: [0],
                             borderColor: '#17a2b8',
                             backgroundColor: 'rgba(23, 162, 184, 0.1)'
                         }, {
-                            label: 'Download (MB)',
+                            label: 'Backward (KB)',
                             data: [0],
                             borderColor: '#0c5460',
                             backgroundColor: 'rgba(12, 84, 96, 0.1)'
@@ -555,17 +611,30 @@ if (strpos($uri, $basePath) === 0) {
             if (!ctx) return;
 
             $.ajax({
-                url: 'assets/data/network_protocols.json?_=' + Date.now(),
+                url: LOGS_URL + '?_=' + Date.now(),
                 dataType: 'json',
-                success: function(protocols) {
+                success: function(trafficData) {
+                    let protocolCounts = { TCP: 0, UDP: 0, ICMP: 0, Other: 0 };
+
+                    if (Array.isArray(trafficData)) {
+                        trafficData.forEach(flow => {
+                            if (!flow) return;
+                            const proto = parseInt(flow["Protocol"]);
+                            if (proto === 6) protocolCounts.TCP++;
+                            else if (proto === 17) protocolCounts.UDP++;
+                            else if (proto === 1) protocolCounts.ICMP++;
+                            else protocolCounts.Other++;
+                        });
+                    }
+
                     const data = {
                         labels: ['TCP', 'UDP', 'ICMP', 'Other'],
                         datasets: [{
                             data: [
-                                protocols.TCP || 0,
-                                protocols.UDP || 0,
-                                protocols.ICMP || 0,
-                                protocols.Other || 0
+                                protocolCounts.TCP,
+                                protocolCounts.UDP,
+                                protocolCounts.ICMP,
+                                protocolCounts.Other
                             ],
                             backgroundColor: ['#17a2b8', '#0c5460', '#20c997', '#6c757d']
                         }]
@@ -608,13 +677,40 @@ if (strpos($uri, $basePath) === 0) {
         // ==================== TOP TALKERS ====================
         function loadTopTalkers() {
             $.ajax({
-                url: 'assets/data/network_talkers.json?_=' + Date.now(),
+                url: LOGS_URL + '?_=' + Date.now(),
                 dataType: 'json',
-                success: function(talkers) {
-                    if (!Array.isArray(talkers) || talkers.length === 0) {
+                success: function(trafficData) {
+                    if (!Array.isArray(trafficData) || trafficData.length === 0) {
                         $('#topTalkersList').html('<p class="text-muted text-center">No network traffic detected</p>');
                         return;
                     }
+
+                    // Aggregate data by source IP
+                    let ipData = {};
+                    trafficData.forEach(flow => {
+                        if (!flow) return;
+                        const srcIP = flow["Src IP"];
+                        if (!srcIP) return;
+
+                        if (!ipData[srcIP]) {
+                            ipData[srcIP] = { packets: 0, bytes: 0 };
+                        }
+                        ipData[srcIP].packets += (parseInt(flow["Total Fwd Packets"]) || 0);
+                        ipData[srcIP].bytes += (parseFloat(flow["Flow Bytes/s"]) || 0);
+                    });
+
+                    // Convert to array and sort
+                    let talkers = Object.entries(ipData).map(([ip, data]) => ({
+                        ip: ip,
+                        packets: data.packets,
+                        bytes: data.bytes
+                    })).sort((a, b) => b.packets - a.packets).slice(0, 5);
+
+                    // Calculate percentages
+                    const maxPackets = talkers.length > 0 ? talkers[0].packets : 1;
+                    talkers.forEach(t => {
+                        t.percent = (t.packets / maxPackets) * 100;
+                    });
 
                     let html = '';
                     talkers.forEach(talker => {
@@ -626,7 +722,7 @@ if (strpos($uri, $basePath) === 0) {
                                         <span class="protocol-badge">${talker.packets.toLocaleString()} packets</span>
                                     </div>
                                     <div class="bandwidth-bar" style="width: ${talker.percent}%"></div>
-                                    <small class="text-muted">Data: ${(talker.bytes / 1000000).toFixed(1)} MB (${talker.percent}%)</small>
+                                    <small class="text-muted">Data: ${(talker.bytes / 1000000).toFixed(1)} MB (${talker.percent.toFixed(1)}%)</small>
                                 </div>
                             </div>
                         `;
@@ -635,7 +731,7 @@ if (strpos($uri, $basePath) === 0) {
                     $('#topTalkersList').html(html);
                 },
                 error: function() {
-                    $('#topTalkersList').html('<p class="text-muted text-center">Unable to load network traffic data</p>');
+                    $('#topTalkersList').html('<p class="text-muted text-center">Waiting for traffic data...</p>');
                 }
             });
         }
@@ -643,20 +739,37 @@ if (strpos($uri, $basePath) === 0) {
         // ==================== BANDWIDTH BY PROTOCOL ====================
         function loadBandwidthByProtocol() {
             $.ajax({
-                url: 'assets/data/network_protocol_bandwidth.json?_=' + Date.now(),
+                url: LOGS_URL + '?_=' + Date.now(),
                 dataType: 'json',
-                success: function(protocols) {
-                    if (!Array.isArray(protocols) || protocols.length === 0) {
-                        $('#bandwidthByProtocol').html('<p class="text-muted text-center">No protocol bandwidth data</p>');
-                        return;
+                success: function(trafficData) {
+                    let protocolBandwidth = { TCP: 0, UDP: 0, ICMP: 0, Other: 0 };
+
+                    if (Array.isArray(trafficData)) {
+                        trafficData.forEach(flow => {
+                            if (!flow) return;
+                            const proto = parseInt(flow["Protocol"]);
+                            const bytes = parseFloat(flow["Flow Bytes/s"]) || 0;
+
+                            if (proto === 6) protocolBandwidth.TCP += bytes;
+                            else if (proto === 17) protocolBandwidth.UDP += bytes;
+                            else if (proto === 1) protocolBandwidth.ICMP += bytes;
+                            else protocolBandwidth.Other += bytes;
+                        });
                     }
 
-                    let totalBandwidth = protocols.reduce((sum, p) => sum + p.bandwidth, 0);
+                    let protocols = [
+                        { name: 'TCP', bandwidth: (protocolBandwidth.TCP / 1000000).toFixed(1), color: '#17a2b8' },
+                        { name: 'UDP', bandwidth: (protocolBandwidth.UDP / 1000000).toFixed(1), color: '#0c5460' },
+                        { name: 'ICMP', bandwidth: (protocolBandwidth.ICMP / 1000000).toFixed(1), color: '#20c997' },
+                        { name: 'Other', bandwidth: (protocolBandwidth.Other / 1000000).toFixed(1), color: '#6c757d' }
+                    ];
+
+                    let totalBandwidth = protocols.reduce((sum, p) => sum + parseFloat(p.bandwidth), 0);
                     if (totalBandwidth === 0) totalBandwidth = 1;
 
                     let html = '';
                     protocols.forEach(proto => {
-                        const percentage = (proto.bandwidth / totalBandwidth) * 100;
+                        const percentage = (parseFloat(proto.bandwidth) / totalBandwidth) * 100;
                         html += `
                             <div class="bandwidth-usage">
                                 <div class="bandwidth-label">${proto.name}</div>
@@ -671,7 +784,7 @@ if (strpos($uri, $basePath) === 0) {
                     $('#bandwidthByProtocol').html(html);
                 },
                 error: function() {
-                    $('#bandwidthByProtocol').html('<p class="text-muted text-center">Unable to load protocol bandwidth</p>');
+                    $('#bandwidthByProtocol').html('<p class="text-muted text-center">Waiting for traffic data...</p>');
                 }
             });
         }
@@ -679,24 +792,30 @@ if (strpos($uri, $basePath) === 0) {
         // ==================== ACTIVE CONNECTIONS ====================
         function loadActiveConnections() {
             $.ajax({
-                url: 'assets/data/network_connections.json?_=' + Date.now(),
+                url: LOGS_URL + '?_=' + Date.now(),
                 dataType: 'json',
-                success: function(connections) {
-                    if (!Array.isArray(connections) || connections.length === 0) {
+                success: function(trafficData) {
+                    if (!Array.isArray(trafficData) || trafficData.length === 0) {
                         $('#activeConnectionsList').html('<p class="text-muted text-center">No active connections</p>');
                         return;
                     }
 
                     let html = '';
-                    connections.forEach(conn => {
+                    trafficData.slice(-10).reverse().forEach(flow => {
+                        if (!flow) return;
+                        const proto = parseInt(flow["Protocol"]) === 6 ? 'TCP' :
+                                     parseInt(flow["Protocol"]) === 17 ? 'UDP' :
+                                     parseInt(flow["Protocol"]) === 1 ? 'ICMP' : 'Other';
+                        const packets = (parseInt(flow["Total Fwd Packets"]) || 0) + (parseInt(flow["Total Backward Packets"]) || 0);
+
                         html += `
                             <div class="connection-flow">
-                                <span>${conn.src}</span>
+                                <span>${flow["Src IP"] || 'N/A'}:${flow["Src Port"] || '?'}</span>
                                 <span class="arrow">→</span>
-                                <span>${conn.dst}</span>
+                                <span>${flow["Dst IP"] || 'N/A'}:${flow["Dst Port"] || '?'}</span>
                                 <span class="ms-auto">
-                                    <span class="protocol-badge">${conn.proto}</span>
-                                    <span class="badge bg-success">${conn.packets}</span>
+                                    <span class="protocol-badge">${proto}</span>
+                                    <span class="badge bg-success">${packets}</span>
                                 </span>
                             </div>
                         `;
@@ -705,7 +824,7 @@ if (strpos($uri, $basePath) === 0) {
                     $('#activeConnectionsList').html(html);
                 },
                 error: function() {
-                    $('#activeConnectionsList').html('<p class="text-muted text-center">Unable to load connections</p>');
+                    $('#activeConnectionsList').html('<p class="text-muted text-center">Waiting for traffic data...</p>');
                 }
             });
         }
@@ -713,29 +832,58 @@ if (strpos($uri, $basePath) === 0) {
         // ==================== HEALTH METRICS ====================
         function loadHealthMetrics() {
             $.ajax({
-                url: 'assets/data/network_health.json?_=' + Date.now(),
+                url: LOGS_URL + '?_=' + Date.now(),
                 dataType: 'json',
-                success: function(metrics) {
-                    if (!Array.isArray(metrics) || metrics.length === 0) {
+                success: function(trafficData) {
+                    if (!Array.isArray(trafficData) || trafficData.length === 0) {
                         $('#healthMetrics').html('<p class="text-muted text-center">No health metrics available</p>');
                         return;
                     }
 
-                    let html = '';
-                    metrics.forEach(metric => {
-                        const indicatorClass = `latency-${metric.status}`;
-                        html += `
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <span>${metric.label}</span>
-                                <span class="latency-indicator ${indicatorClass}">${metric.value}</span>
-                            </div>
-                        `;
+                    // Calculate health metrics
+                    let totalDuration = 0;
+                    let totalFlowRate = 0;
+                    let highRateCount = 0;
+
+                    trafficData.forEach(flow => {
+                        if (!flow) return;
+                        totalDuration += parseFloat(flow["Flow Duration"]) || 0;
+                        const flowRate = parseFloat(flow["Flow Packets/s"]) || 0;
+                        totalFlowRate += flowRate;
+                        if (flowRate > 1000) highRateCount++;
                     });
+
+                    const avgLatency = trafficData.length > 0 ? (totalDuration / trafficData.length) : 0;
+                    const avgFlowRate = trafficData.length > 0 ? (totalFlowRate / trafficData.length) : 0;
+                    const packetLoss = (highRateCount / trafficData.length) * 100;
+
+                    const latencyStatus = avgLatency < 50 ? 'good' : avgLatency < 150 ? 'warning' : 'critical';
+                    const throughputStatus = avgFlowRate > 100 ? 'good' : avgFlowRate > 10 ? 'warning' : 'critical';
+                    const lossStatus = packetLoss < 5 ? 'good' : packetLoss < 20 ? 'warning' : 'critical';
+
+                    let html = `
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span>Average Latency</span>
+                            <span class="latency-indicator latency-${latencyStatus}">${avgLatency.toFixed(1)} ms</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span>Throughput</span>
+                            <span class="latency-indicator latency-${throughputStatus}">${avgFlowRate.toFixed(1)} pkt/s</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span>High Traffic Flows</span>
+                            <span class="latency-indicator latency-${lossStatus}">${packetLoss.toFixed(1)}%</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span>Total Flows</span>
+                            <span class="latency-indicator latency-good">${trafficData.length}</span>
+                        </div>
+                    `;
 
                     $('#healthMetrics').html(html);
                 },
                 error: function() {
-                    $('#healthMetrics').html('<p class="text-muted text-center">Unable to load health metrics</p>');
+                    $('#healthMetrics').html('<p class="text-muted text-center">Waiting for traffic data...</p>');
                 }
             });
         }
@@ -743,25 +891,34 @@ if (strpos($uri, $basePath) === 0) {
         // ==================== PACKET ACTIVITY ====================
         function loadPacketActivity() {
             $.ajax({
-                url: 'assets/data/network_packets.json?_=' + Date.now(),
+                url: LOGS_URL + '?_=' + Date.now(),
                 dataType: 'json',
-                success: function(packets) {
-                    if (!Array.isArray(packets) || packets.length === 0) {
+                success: function(trafficData) {
+                    if (!Array.isArray(trafficData) || trafficData.length === 0) {
                         $('#packetActivityList').html('<p class="text-muted text-center">No packet activity detected</p>');
                         return;
                     }
 
                     let html = '';
-                    packets.forEach(pkt => {
-                        const itemClass = pkt.type === 'spike' ? 'packet-item spike' : 'packet-item';
+                    trafficData.slice(-15).reverse().forEach(flow => {
+                        if (!flow) return;
+
+                        const proto = parseInt(flow["Protocol"]) === 6 ? 'TCP' :
+                                     parseInt(flow["Protocol"]) === 17 ? 'UDP' :
+                                     parseInt(flow["Protocol"]) === 1 ? 'ICMP' : 'Other';
+                        const flowRate = parseFloat(flow["Flow Packets/s"]) || 0;
+                        const itemClass = flowRate > 1000 ? 'packet-item spike' : 'packet-item';
+                        const totalPackets = (parseInt(flow["Total Fwd Packets"]) || 0) + (parseInt(flow["Total Backward Packets"]) || 0);
+                        const bytes = parseFloat(flow["Flow Bytes/s"]) || 0;
+
                         html += `
                             <div class="${itemClass}">
                                 <div class="d-flex justify-content-between mb-1">
-                                    <strong>${pkt.time}</strong>
-                                    <span class="protocol-badge">${pkt.proto}</span>
+                                    <strong>${flow["Timestamp"] || 'N/A'}</strong>
+                                    <span class="protocol-badge">${proto}</span>
                                 </div>
-                                <small class="d-block">${pkt.src} → ${pkt.dst}</small>
-                                <small class="text-muted">Size: ${pkt.size} bytes</small>
+                                <small class="d-block">${flow["Src IP"] || 'N/A'}:${flow["Src Port"] || '?'} → ${flow["Dst IP"] || 'N/A'}:${flow["Dst Port"] || '?'}</small>
+                                <small class="text-muted">Packets: ${totalPackets} | Bytes: ${bytes.toFixed(0)}/s</small>
                             </div>
                         `;
                     });
@@ -769,7 +926,7 @@ if (strpos($uri, $basePath) === 0) {
                     $('#packetActivityList').html(html);
                 },
                 error: function() {
-                    $('#packetActivityList').html('<p class="text-muted text-center">Unable to load packet activity</p>');
+                    $('#packetActivityList').html('<p class="text-muted text-center">Waiting for traffic data...</p>');
                 }
             });
         }

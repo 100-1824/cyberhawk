@@ -36,6 +36,7 @@ $r->addRoute('GET', MDIR . 'verify', 'get_verify_page');
     $r->addRoute('POST', MDIR . 'stop-logs', 'stopLogsHandler');
 
     $r->addRoute('GET', MDIR . 'get-intrusion-chart-data', 'get_intrusion_chart_data');
+    $r->addRoute('GET', MDIR . 'get-validated-alerts', checkSession('user_id', 'get_validated_alerts'));
 
     // Protected routes (require authentication)
     $r->addRoute('GET', MDIR . 'dashboard', checkSession('user_id', 'get_dashboard'));

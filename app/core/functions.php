@@ -830,44 +830,33 @@ function handle_save_api_keys() {
     $userId            = $_SESSION['user_id'];
     $virusTotalKey     = $_POST['virustotal_api_key'] ?? '';
     $hybridAnalysisKey = $_POST['hybrid_analysis_key'] ?? '';
+    $abuseIPDBKey      = $_POST['abuseipdb_api_key'] ?? '';
+    $alienVaultKey     = $_POST['alienvault_api_key'] ?? '';
+    $ipQualityKey      = $_POST['ipqualityscore_api_key'] ?? '';
 
-    // Save VirusTotal API key
-    if (!empty($virusTotalKey)) {
+    // Helper function to save/update a setting
+    $saveSetting = function($key, $value) use ($userId) {
+        if (empty($value)) return;
 
-        $checkSql = "SELECT id FROM system_settings WHERE user_id = ? AND setting_key = 'virustotal_api_key'";
-        $existing = mysqli_prepared_query($checkSql, 'i', [$userId]);
-
-        if ($existing && count($existing) > 0) {
-
-            $updateSql = "UPDATE system_settings SET setting_value = ? WHERE user_id = ? AND setting_key = 'virustotal_api_key'";
-            mysqli_prepared_query($updateSql, 'si', [$virusTotalKey, $userId]);
-
-        } else {
-
-            $insertSql = "INSERT INTO system_settings (user_id, setting_key, setting_value)
-                          VALUES (?, 'virustotal_api_key', ?)";
-            mysqli_prepared_query($insertSql, 'is', [$userId, $virusTotalKey]);
-        }
-    }
-
-    // Save Hybrid Analysis API key
-    if (!empty($hybridAnalysisKey)) {
-
-        $checkSql = "SELECT id FROM system_settings WHERE user_id = ? AND setting_key = 'hybrid_analysis_key'";
-        $existing = mysqli_prepared_query($checkSql, 'i', [$userId]);
+        $checkSql = "SELECT id FROM system_settings WHERE user_id = ? AND setting_key = ?";
+        $existing = mysqli_prepared_query($checkSql, 'is', [$userId, $key]);
 
         if ($existing && count($existing) > 0) {
-
-            $updateSql = "UPDATE system_settings SET setting_value = ? WHERE user_id = ? AND setting_key = 'hybrid_analysis_key'";
-            mysqli_prepared_query($updateSql, 'si', [$hybridAnalysisKey, $userId]);
-
+            $updateSql = "UPDATE system_settings SET setting_value = ? WHERE user_id = ? AND setting_key = ?";
+            mysqli_prepared_query($updateSql, 'sis', [$value, $userId, $key]);
         } else {
-
             $insertSql = "INSERT INTO system_settings (user_id, setting_key, setting_value)
-                          VALUES (?, 'hybrid_analysis_key', ?)";
-            mysqli_prepared_query($insertSql, 'is', [$userId, $hybridAnalysisKey]);
+                          VALUES (?, ?, ?)";
+            mysqli_prepared_query($insertSql, 'iss', [$userId, $key, $value]);
         }
-    }
+    };
+
+    // Save all API keys
+    $saveSetting('virustotal_api_key', $virusTotalKey);
+    $saveSetting('hybrid_analysis_key', $hybridAnalysisKey);
+    $saveSetting('abuseipdb_api_key', $abuseIPDBKey);
+    $saveSetting('alienvault_api_key', $alienVaultKey);
+    $saveSetting('ipqualityscore_api_key', $ipQualityKey);
 
     echo json_encode(['success' => true, 'message' => 'API keys saved successfully']);
     exit;
@@ -3551,6 +3540,128 @@ function get_packet_activity()
     }
 }
 
+// ==================== VALIDATED ALERTS (THREAT INTELLIGENCE) ====================
+
+/**
+ * Get validated alerts - reduces false positives by validating IPs against threat intelligence APIs
+ * This function loads alerts from alerts.json and validates each source IP against:
+ * - AbuseIPDB
+ * - AlienVault OTX
+ * - IPQualityScore
+ * Only alerts confirmed by at least one API are returned to the frontend
+ */
+function get_validated_alerts()
+{
+    header('Content-Type: application/json');
+
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Unauthorized',
+            'alerts' => []
+        ]);
+        return;
+    }
+
+    try {
+        // Load the IP validation service
+        require_once 'app/core/IPValidationService.php';
+        $validator = new IPValidationService();
+
+        // Load alerts from file
+        $projectDir = rtrim(DIR, '/\\');
+        $alertsFile = $projectDir . '/assets/data/alerts.json';
+
+        if (!file_exists($alertsFile)) {
+            echo json_encode([
+                'success' => true,
+                'alerts' => [],
+                'stats' => [
+                    'total_alerts' => 0,
+                    'validated_alerts' => 0,
+                    'filtered_alerts' => 0
+                ]
+            ]);
+            return;
+        }
+
+        $alertsData = json_decode(file_get_contents($alertsFile), true);
+
+        if (!is_array($alertsData)) {
+            $alertsData = [];
+        }
+
+        // Track statistics
+        $stats = [
+            'total_alerts' => count($alertsData),
+            'validated_alerts' => 0,
+            'filtered_alerts' => 0,
+            'validation_details' => []
+        ];
+
+        $validatedAlerts = [];
+
+        // Validate each alert
+        foreach ($alertsData as $alert) {
+            $sourceIP = $alert['Src IP'] ?? '';
+
+            if (empty($sourceIP)) {
+                // If no source IP, skip validation and include the alert
+                $validatedAlerts[] = $alert;
+                $stats['validated_alerts']++;
+                continue;
+            }
+
+            // Validate the IP
+            $validationResult = $validator->validateIP($sourceIP);
+
+            // Add validation metadata to the alert
+            $alert['validation'] = [
+                'is_validated' => $validationResult['is_validated'],
+                'confidence' => $validationResult['confidence'],
+                'sources' => $validationResult['sources'],
+                'note' => $validationResult['note'] ?? ''
+            ];
+
+            // Only include alerts that are validated as threats
+            // OR if the IP is private (internal network alerts are always shown)
+            if ($validationResult['is_validated'] || isset($validationResult['note'])) {
+                $validatedAlerts[] = $alert;
+                $stats['validated_alerts']++;
+
+                // Store validation details for statistics
+                if (!empty($validationResult['sources'])) {
+                    $stats['validation_details'][] = [
+                        'ip' => $sourceIP,
+                        'sources' => $validationResult['sources'],
+                        'confidence' => $validationResult['confidence']
+                    ];
+                }
+            } else {
+                $stats['filtered_alerts']++;
+            }
+        }
+
+        echo json_encode([
+            'success' => true,
+            'alerts' => $validatedAlerts,
+            'stats' => $stats,
+            'message' => sprintf(
+                'Filtered %d false positives out of %d total alerts',
+                $stats['filtered_alerts'],
+                $stats['total_alerts']
+            )
+        ]);
+
+    } catch (Exception $e) {
+        error_log("Error in get_validated_alerts: " . $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'message' => 'Error validating alerts: ' . $e->getMessage(),
+            'alerts' => []
+        ]);
+    }
+}
 
 
 ?>

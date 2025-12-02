@@ -985,29 +985,41 @@ if (strpos($uri, $basePath) === 0) {
         else return proto || "--";
     }
 
-    // Load alerts
+    // Load validated alerts (filtered through threat intelligence APIs)
     function loadAlerts() {
         $.ajax({
-            url: "assets/data/alerts.json?ts=" + Date.now(),
-            dataType: 'text',
-            success: function(text) {
-                if (!text) {
-                    console.warn("alerts.json is empty");
-                    updateAlertsTable([]);
-                    return;
-                }
+            url: "<?= MDIR ?>get-validated-alerts?ts=" + Date.now(),
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    updateAlertsTable(response.alerts);
 
-                try {
-                    const data = JSON.parse(text);
-                    updateAlertsTable(data);
-                } catch (e) {
-                    console.error("Invalid JSON in alerts.json:", e);
+                    // Log validation statistics
+                    if (response.stats) {
+                        console.log('Alert Validation Stats:', response.stats);
+                        if (response.stats.filtered_alerts > 0) {
+                            console.log(`✓ Filtered ${response.stats.filtered_alerts} false positives`);
+                        }
+                    }
+                } else {
+                    console.warn("Failed to load validated alerts:", response.message);
                     updateAlertsTable([]);
                 }
             },
             error: function(xhr, status, error) {
-                console.error("Error loading alerts:", error);
-                updateAlertsTable([]);
+                console.error("Error loading validated alerts:", error);
+                // Fallback to direct file access if API fails
+                console.log("Falling back to direct alerts.json access...");
+                $.ajax({
+                    url: "assets/data/alerts.json?ts=" + Date.now(),
+                    dataType: 'json',
+                    success: function(data) {
+                        updateAlertsTable(data || []);
+                    },
+                    error: function() {
+                        updateAlertsTable([]);
+                    }
+                });
             }
         });
     }

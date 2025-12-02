@@ -200,4 +200,25 @@ function get_verify_page()
 {
     require 'app/views/pages/verify.php';
 }
+
+function get_threat_intelligence_page()
+{
+    if (!isset($_SESSION['user_id'])) {
+        header("Location: " . MDIR . "login");
+        exit;
+    }
+    require 'app/views/pages/threat_intelligence.php';
+}
+
+/**
+ * Network Analytics Page Loader
+ */
+function get_network_analytics_page()
+{
+    if (!isset($_SESSION['user_id'])) {
+        header("Location: " . MDIR . "login");
+        exit;
+    }
+    require 'app/views/pages/network_analytics.php';
+}
 ?>

@@ -3663,5 +3663,81 @@ function get_validated_alerts()
     }
 }
 
+/**
+ * Test endpoint to validate a single IP address
+ * Usage: GET /test-ip-validation?ip=8.8.8.8
+ */
+function test_ip_validation()
+{
+    header('Content-Type: application/json');
+
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Unauthorized'
+        ]);
+        return;
+    }
+
+    $ip = $_GET['ip'] ?? '';
+
+    if (empty($ip)) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Please provide an IP address via ?ip=x.x.x.x parameter'
+        ]);
+        return;
+    }
+
+    // Validate IP format
+    if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Invalid IP address format'
+        ]);
+        return;
+    }
+
+    try {
+        // Load the IP validation service
+        require_once 'app/core/IPValidationService.php';
+        $validator = new IPValidationService();
+
+        // Validate the IP
+        $result = $validator->validateIP($ip);
+
+        // Return detailed results
+        echo json_encode([
+            'success' => true,
+            'ip' => $ip,
+            'is_validated_threat' => $result['is_validated'],
+            'confidence' => $result['confidence'],
+            'confirmed_by' => $result['sources'],
+            'note' => $result['note'] ?? '',
+            'details' => [
+                'abuseipdb' => array_filter($result['details'], function($d) {
+                    return $d['source'] === 'abuseipdb';
+                })[0] ?? null,
+                'alienvault' => array_filter($result['details'], function($d) {
+                    return $d['source'] === 'alienvault';
+                })[1] ?? null,
+                'ipqualityscore' => array_filter($result['details'], function($d) {
+                    return $d['source'] === 'ipqualityscore';
+                })[2] ?? null
+            ],
+            'verdict' => $result['is_validated']
+                ? '⚠️ CONFIRMED THREAT - This IP is malicious'
+                : '✅ NOT A THREAT - This is likely a false positive'
+        ]);
+
+    } catch (Exception $e) {
+        error_log("Error in test_ip_validation: " . $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'message' => 'Error validating IP: ' . $e->getMessage()
+        ]);
+    }
+}
+
 
 ?>

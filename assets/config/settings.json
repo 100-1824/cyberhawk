@@ -1,5 +1,5 @@
 {
-    "alert_threshold": 0.85,
+    "alert_threshold": 0.009000000000000001,
     "session_timeout": 30,
     "enable_email_alerts": false,
     "enable_desktop_alerts": true,
@@ -9,5 +9,5 @@
     "alert_sound": false,
     "daily_summary": false,
     "theme": "light",
-    "last_updated": "2025-01-19T00:00:00Z"
+    "last_updated": "2025-11-29T16:07:33+01:00"
 }

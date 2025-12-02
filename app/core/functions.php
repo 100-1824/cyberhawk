@@ -3266,52 +3266,18 @@ function get_network_analytics_page()
 function get_threat_feeds()
 {
     header('Content-Type: application/json');
-    
+
     $projectDir = rtrim(DIR, '/\\');
     $feedsFile = $projectDir . '/assets/data/threat_feeds.json';
-    
-    // Load or create threat feeds
+
+    // Load threat feeds from JSON file
     if (file_exists($feedsFile)) {
         $feeds = json_decode(file_get_contents($feedsFile), true);
+        echo json_encode($feeds ? $feeds : []);
     } else {
-        $feeds = generateDefaultThreatFeeds();
-        saveThreatFeeds($feeds);
+        // Return empty array if file doesn't exist
+        echo json_encode([]);
     }
-    
-    echo json_encode($feeds);
-}
-
-/**
- * Generate default threat feeds
- */
-function generateDefaultThreatFeeds()
-{
-    return [
-        [
-            'id' => 1,
-            'source' => 'MISP Feed',
-            'threat' => 'Distributed DoS Campaign',
-            'severity' => 'critical',
-            'timestamp' => date('Y-m-d H:i:s', time() - 300),
-            'count' => 1500
-        ],
-        [
-            'id' => 2,
-            'source' => 'VirusTotal',
-            'threat' => 'New Ransomware Variant (Lockbit 3.0)',
-            'severity' => 'critical',
-            'timestamp' => date('Y-m-d H:i:s', time() - 900),
-            'count' => 250
-        ],
-        [
-            'id' => 3,
-            'source' => 'Shodan',
-            'threat' => 'Exposed Database Servers (SQLi)',
-            'severity' => 'high',
-            'timestamp' => date('Y-m-d H:i:s', time() - 1800),
-            'count' => 42
-        ]
-    ];
 }
 
 /**
@@ -3320,35 +3286,18 @@ function generateDefaultThreatFeeds()
 function get_threat_actors()
 {
     header('Content-Type: application/json');
-    
-    $actors = [
-        [
-            'id' => 1,
-            'name' => 'Lazarus Group',
-            'country' => 'North Korea',
-            'activity' => 'Ransomware, Crypto Theft',
-            'lastSeen' => date('Y-m-d H:i:s'),
-            'campaigns' => 5
-        ],
-        [
-            'id' => 2,
-            'name' => 'APT28 (Fancy Bear)',
-            'country' => 'Russia',
-            'activity' => 'Nation-State Attacks',
-            'lastSeen' => date('Y-m-d H:i:s'),
-            'campaigns' => 12
-        ],
-        [
-            'id' => 3,
-            'name' => 'Emotet',
-            'country' => 'Unknown',
-            'activity' => 'Banking Trojan Distribution',
-            'lastSeen' => date('Y-m-d H:i:s'),
-            'campaigns' => 8
-        ]
-    ];
-    
-    echo json_encode($actors);
+
+    $projectDir = rtrim(DIR, '/\\');
+    $actorsFile = $projectDir . '/assets/data/threat_actors.json';
+
+    // Load threat actors from JSON file
+    if (file_exists($actorsFile)) {
+        $actors = json_decode(file_get_contents($actorsFile), true);
+        echo json_encode($actors ? $actors : []);
+    } else {
+        // Return empty array if file doesn't exist
+        echo json_encode([]);
+    }
 }
 
 /**
@@ -3357,24 +3306,22 @@ function get_threat_actors()
 function get_iocs()
 {
     header('Content-Type: application/json');
-    
+
     $type = $_GET['type'] ?? 'all'; // all, ip, domain, hash
-    
-    $iocs = [
-        'ips' => [
-            ['ip' => '192.168.1.100', 'level' => 'critical', 'lastSeen' => '2 minutes ago', 'confidence' => 99],
-            ['ip' => '10.0.0.50', 'level' => 'high', 'lastSeen' => '15 minutes ago', 'confidence' => 95]
-        ],
-        'domains' => [
-            ['domain' => 'malicious-c2.com', 'level' => 'critical', 'lastSeen' => '5 minutes ago', 'confidence' => 98],
-            ['domain' => 'phishing-site.ru', 'level' => 'high', 'lastSeen' => '30 minutes ago', 'confidence' => 96]
-        ],
-        'hashes' => [
-            ['hash' => 'a1b2c3d4e5f6...', 'level' => 'critical', 'type' => 'Ransomware', 'lastSeen' => '10 minutes ago'],
-            ['hash' => 'f6e5d4c3b2a1...', 'level' => 'high', 'type' => 'Trojan', 'lastSeen' => '2 hours ago']
-        ]
-    ];
-    
+
+    $projectDir = rtrim(DIR, '/\\');
+    $iocsFile = $projectDir . '/assets/data/iocs.json';
+
+    // Load IOCs from JSON file
+    if (file_exists($iocsFile)) {
+        $iocs = json_decode(file_get_contents($iocsFile), true);
+        if (!$iocs) {
+            $iocs = ['ips' => [], 'domains' => [], 'hashes' => []];
+        }
+    } else {
+        $iocs = ['ips' => [], 'domains' => [], 'hashes' => []];
+    }
+
     if ($type === 'all') {
         echo json_encode($iocs);
     } else {
@@ -3388,35 +3335,18 @@ function get_iocs()
 function get_vulnerabilities()
 {
     header('Content-Type: application/json');
-    
-    $vulnerabilities = [
-        [
-            'id' => 'CVE-2024-1086',
-            'title' => 'Linux Kernel Privilege Escalation',
-            'score' => 9.8,
-            'affected' => 'Linux 6.0 - 6.7',
-            'status' => 'Actively Exploited',
-            'description' => 'Critical privilege escalation vulnerability in Linux kernel'
-        ],
-        [
-            'id' => 'CVE-2024-0567',
-            'title' => 'Windows Remote Code Execution',
-            'score' => 9.6,
-            'affected' => 'Windows Server 2019-2022',
-            'status' => 'Patches Available',
-            'description' => 'Remote code execution vulnerability in Windows'
-        ],
-        [
-            'id' => 'CVE-2023-44487',
-            'title' => 'HTTP/2 Rapid Reset Attack',
-            'score' => 7.5,
-            'affected' => 'Multiple HTTP/2 Implementations',
-            'status' => 'Patched',
-            'description' => 'Denial of service vulnerability in HTTP/2 protocol'
-        ]
-    ];
-    
-    echo json_encode($vulnerabilities);
+
+    $projectDir = rtrim(DIR, '/\\');
+    $vulnFile = $projectDir . '/assets/data/vulnerabilities.json';
+
+    // Load vulnerabilities from JSON file
+    if (file_exists($vulnFile)) {
+        $vulnerabilities = json_decode(file_get_contents($vulnFile), true);
+        echo json_encode($vulnerabilities ? $vulnerabilities : []);
+    } else {
+        // Return empty array if file doesn't exist
+        echo json_encode([]);
+    }
 }
 
 /**
@@ -3524,13 +3454,20 @@ function get_network_metrics()
 function get_bandwidth_data()
 {
     header('Content-Type: application/json');
-    
-    $data = [
-        'labels' => ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '23:59'],
-        'upload' => [100, 150, 200, 250, 300, 280, 180],
-        'download' => [200, 280, 350, 420, 380, 290, 220]
-    ];
-    
+
+    $projectDir = rtrim(DIR, '/\\');
+    $bandwidthFile = $projectDir . '/assets/data/network_bandwidth.json';
+
+    // Load bandwidth data from JSON file
+    if (file_exists($bandwidthFile)) {
+        $data = json_decode(file_get_contents($bandwidthFile), true);
+        if (!$data) {
+            $data = ['labels' => [], 'upload' => [], 'download' => []];
+        }
+    } else {
+        $data = ['labels' => [], 'upload' => [], 'download' => []];
+    }
+
     echo json_encode($data);
 }
 
@@ -3540,17 +3477,21 @@ function get_bandwidth_data()
 function get_protocol_stats()
 {
     header('Content-Type: application/json');
-    
-    $stats = [
-        'protocols' => [
-            ['name' => 'TCP', 'percentage' => 55, 'packets' => 84000],
-            ['name' => 'UDP', 'percentage' => 30, 'packets' => 45000],
-            ['name' => 'ICMP', 'percentage' => 10, 'packets' => 15000],
-            ['name' => 'Other', 'percentage' => 5, 'packets' => 7500]
-        ]
-    ];
-    
-    echo json_encode($stats);
+
+    $projectDir = rtrim(DIR, '/\\');
+    $protocolsFile = $projectDir . '/assets/data/network_protocols.json';
+
+    // Load protocol stats from JSON file
+    if (file_exists($protocolsFile)) {
+        $protocols = json_decode(file_get_contents($protocolsFile), true);
+        if (!$protocols) {
+            $protocols = ['TCP' => 0, 'UDP' => 0, 'ICMP' => 0, 'Other' => 0];
+        }
+    } else {
+        $protocols = ['TCP' => 0, 'UDP' => 0, 'ICMP' => 0, 'Other' => 0];
+    }
+
+    echo json_encode($protocols);
 }
 
 /**
@@ -3559,16 +3500,17 @@ function get_protocol_stats()
 function get_top_talkers()
 {
     header('Content-Type: application/json');
-    
-    $talkers = [
-        ['ip' => '192.168.1.100', 'packets' => 45000, 'bytes' => 5200000, 'percentage' => 28],
-        ['ip' => '10.0.0.50', 'packets' => 32000, 'bytes' => 3100000, 'percentage' => 20],
-        ['ip' => '172.16.0.1', 'packets' => 28000, 'bytes' => 2800000, 'percentage' => 18],
-        ['ip' => '8.8.8.8', 'packets' => 22000, 'bytes' => 2100000, 'percentage' => 14],
-        ['ip' => '1.1.1.1', 'packets' => 18000, 'bytes' => 1700000, 'percentage' => 12]
-    ];
-    
-    echo json_encode($talkers);
+
+    $projectDir = rtrim(DIR, '/\\');
+    $talkersFile = $projectDir . '/assets/data/network_talkers.json';
+
+    // Load top talkers from JSON file
+    if (file_exists($talkersFile)) {
+        $talkers = json_decode(file_get_contents($talkersFile), true);
+        echo json_encode($talkers ? $talkers : []);
+    } else {
+        echo json_encode([]);
+    }
 }
 
 /**
@@ -3577,27 +3519,17 @@ function get_top_talkers()
 function get_active_connections()
 {
     header('Content-Type: application/json');
-    
-    $connections = [
-        [
-            'src' => '192.168.1.100:54321',
-            'dst' => '8.8.8.8:443',
-            'proto' => 'TCP',
-            'packets' => 450,
-            'status' => 'Active',
-            'duration' => '5m 23s'
-        ],
-        [
-            'src' => '10.0.0.50:5353',
-            'dst' => '224.0.0.251:5353',
-            'proto' => 'UDP',
-            'packets' => 125,
-            'status' => 'Active',
-            'duration' => '2m 15s'
-        ]
-    ];
-    
-    echo json_encode($connections);
+
+    $projectDir = rtrim(DIR, '/\\');
+    $connectionsFile = $projectDir . '/assets/data/network_connections.json';
+
+    // Load active connections from JSON file
+    if (file_exists($connectionsFile)) {
+        $connections = json_decode(file_get_contents($connectionsFile), true);
+        echo json_encode($connections ? $connections : []);
+    } else {
+        echo json_encode([]);
+    }
 }
 
 /**
@@ -3606,40 +3538,19 @@ function get_active_connections()
 function get_packet_activity()
 {
     header('Content-Type: application/json');
-    
-    $packets = [
-        [
-            'time' => date('H:i:s'),
-            'src' => '192.168.1.100',
-            'dst' => '8.8.8.8',
-            'proto' => 'TCP',
-            'size' => 1500,
-            'type' => 'normal'
-        ],
-        [
-            'time' => date('H:i:s', time() - 2),
-            'src' => '10.0.0.50',
-            'dst' => '224.0.0.251',
-            'proto' => 'UDP',
-            'size' => 256,
-            'type' => 'normal'
-        ]
-    ];
-    
-    echo json_encode($packets);
+
+    $projectDir = rtrim(DIR, '/\\');
+    $packetsFile = $projectDir . '/assets/data/network_packets.json';
+
+    // Load packet activity from JSON file
+    if (file_exists($packetsFile)) {
+        $packets = json_decode(file_get_contents($packetsFile), true);
+        echo json_encode($packets ? $packets : []);
+    } else {
+        echo json_encode([]);
+    }
 }
 
-/**
- * Helper: Save threat feeds to file
- */
-function saveThreatFeeds($feeds)
-{
-    $projectDir = rtrim(DIR, '/\\');
-    $feedsFile = $projectDir . '/assets/data/threat_feeds.json';
-    
-    @mkdir(dirname($feedsFile), 0755, true);
-    file_put_contents($feedsFile, json_encode($feeds, JSON_PRETTY_PRINT));
-}
 
 
 ?>

@@ -3596,7 +3596,8 @@ function get_validated_alerts()
             'total_alerts' => count($alertsData),
             'validated_alerts' => 0,
             'filtered_alerts' => 0,
-            'validation_details' => []
+            'validation_details' => [],
+            'protocol_filtered' => []
         ];
 
         $validatedAlerts = [];
@@ -3604,6 +3605,74 @@ function get_validated_alerts()
         // Validate each alert
         foreach ($alertsData as $alert) {
             $sourceIP = $alert['Src IP'] ?? '';
+            $destIP = $alert['Dst IP'] ?? '';
+            $srcPort = $alert['Src Port'] ?? 0;
+            $dstPort = $alert['Dst Port'] ?? 0;
+            $protocol = $alert['Protocol'] ?? 0;
+
+            // ============================================================================
+            // PROTOCOL-BASED FALSE POSITIVE FILTERING
+            // Filter common legitimate traffic patterns before IP validation
+            // ============================================================================
+
+            $isLegitimateTraffic = false;
+            $filterReason = '';
+
+            // 1. DHCP Traffic (0.0.0.0:68 → 255.255.255.255:67)
+            if ($sourceIP === '0.0.0.0' && $destIP === '255.255.255.255' &&
+                $srcPort == 68 && $dstPort == 67 && $protocol == 17) {
+                $isLegitimateTraffic = true;
+                $filterReason = 'DHCP Discovery - Legitimate network configuration traffic';
+            }
+
+            // 2. DHCP Server Response (server:67 → client:68)
+            if ($srcPort == 67 && $dstPort == 68 && $protocol == 17) {
+                $isLegitimateTraffic = true;
+                $filterReason = 'DHCP Response - Legitimate network configuration traffic';
+            }
+
+            // 3. DNS Traffic (port 53) - when not from suspicious sources
+            if (($srcPort == 53 || $dstPort == 53) && $protocol == 17) {
+                // Only filter if from common DNS servers or local network
+                if (preg_match('/^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/', $sourceIP) ||
+                    in_array($sourceIP, ['8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1'])) {
+                    $isLegitimateTraffic = true;
+                    $filterReason = 'DNS Query - Legitimate name resolution';
+                }
+            }
+
+            // 4. Multicast/Broadcast destinations (224.x.x.x, 239.x.x.x, 255.255.255.255)
+            if (preg_match('/^(224\.|239\.)/', $destIP) || $destIP === '255.255.255.255') {
+                $isLegitimateTraffic = true;
+                $filterReason = 'Multicast/Broadcast - Legitimate network discovery';
+            }
+
+            // 5. mDNS (port 5353) - Multicast DNS for service discovery
+            if (($srcPort == 5353 || $dstPort == 5353) && $protocol == 17) {
+                $isLegitimateTraffic = true;
+                $filterReason = 'mDNS - Legitimate service discovery';
+            }
+
+            // 6. SSDP/UPnP (port 1900) - Universal Plug and Play
+            if (($srcPort == 1900 || $dstPort == 1900) && $protocol == 17) {
+                $isLegitimateTraffic = true;
+                $filterReason = 'SSDP/UPnP - Legitimate device discovery';
+            }
+
+            // If identified as legitimate traffic, filter it out
+            if ($isLegitimateTraffic) {
+                $stats['filtered_alerts']++;
+                $stats['protocol_filtered'][] = [
+                    'ip' => $sourceIP,
+                    'port' => "$srcPort→$dstPort",
+                    'reason' => $filterReason
+                ];
+                continue;
+            }
+
+            // ============================================================================
+            // IP VALIDATION (for non-protocol-filtered alerts)
+            // ============================================================================
 
             if (empty($sourceIP)) {
                 // If no source IP, skip validation and include the alert
@@ -3612,7 +3681,7 @@ function get_validated_alerts()
                 continue;
             }
 
-            // Validate the IP
+            // Validate the IP against threat intelligence APIs
             $validationResult = $validator->validateIP($sourceIP);
 
             // Add validation metadata to the alert
@@ -3624,8 +3693,8 @@ function get_validated_alerts()
             ];
 
             // Only include alerts that are validated as threats
-            // OR if the IP is private (internal network alerts are always shown)
-            if ($validationResult['is_validated'] || isset($validationResult['note'])) {
+            // Private/broadcast IPs get a note and are skipped (not shown as threats)
+            if ($validationResult['is_validated'] && empty($validationResult['note'])) {
                 $validatedAlerts[] = $alert;
                 $stats['validated_alerts']++;
 
@@ -3659,6 +3728,82 @@ function get_validated_alerts()
             'success' => false,
             'message' => 'Error validating alerts: ' . $e->getMessage(),
             'alerts' => []
+        ]);
+    }
+}
+
+/**
+ * Test endpoint to validate a single IP address
+ * Usage: GET /test-ip-validation?ip=8.8.8.8
+ */
+function test_ip_validation()
+{
+    header('Content-Type: application/json');
+
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Unauthorized'
+        ]);
+        return;
+    }
+
+    $ip = $_GET['ip'] ?? '';
+
+    if (empty($ip)) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Please provide an IP address via ?ip=x.x.x.x parameter'
+        ]);
+        return;
+    }
+
+    // Validate IP format
+    if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Invalid IP address format'
+        ]);
+        return;
+    }
+
+    try {
+        // Load the IP validation service
+        require_once 'app/core/IPValidationService.php';
+        $validator = new IPValidationService();
+
+        // Validate the IP
+        $result = $validator->validateIP($ip);
+
+        // Return detailed results
+        echo json_encode([
+            'success' => true,
+            'ip' => $ip,
+            'is_validated_threat' => $result['is_validated'],
+            'confidence' => $result['confidence'],
+            'confirmed_by' => $result['sources'],
+            'note' => $result['note'] ?? '',
+            'details' => [
+                'abuseipdb' => array_filter($result['details'], function($d) {
+                    return $d['source'] === 'abuseipdb';
+                })[0] ?? null,
+                'alienvault' => array_filter($result['details'], function($d) {
+                    return $d['source'] === 'alienvault';
+                })[1] ?? null,
+                'ipqualityscore' => array_filter($result['details'], function($d) {
+                    return $d['source'] === 'ipqualityscore';
+                })[2] ?? null
+            ],
+            'verdict' => $result['is_validated']
+                ? '⚠️ CONFIRMED THREAT - This IP is malicious'
+                : '✅ NOT A THREAT - This is likely a false positive'
+        ]);
+
+    } catch (Exception $e) {
+        error_log("Error in test_ip_validation: " . $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'message' => 'Error validating IP: ' . $e->getMessage()
         ]);
     }
 }

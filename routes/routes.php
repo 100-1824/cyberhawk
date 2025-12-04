@@ -6,179 +6,219 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require 'app/database/config.php';
 require 'vendor/autoload.php';
+
+// ==================== LOAD ALL CLASS FILES ====================
+
+// Infrastructure
+require 'app/infrastructure/DatabaseHelper.php';
+require 'app/infrastructure/AlertService.php';
+require 'app/infrastructure/LogManager.php';
+
+// Services
+require 'app/services/AuthService.php';
+require 'app/services/EmailService.php';
+require 'app/services/NotificationService.php';
+require 'app/services/UserProfileService.php';
+require 'app/services/SettingsService.php';
+require 'app/services/AccountService.php';
+require 'app/services/ChatbotService.php';
+require 'app/services/MalwareService.php';
+require 'app/services/RansomwareService.php';
+require 'app/services/ThreatIntelligenceService.php';
+require 'app/services/NetworkAnalyticsService.php';
+require 'app/services/ReportingService.php';
+
+// Middleware
+require 'app/middleware/SessionMiddleware.php';
+require 'app/middleware/ApiAuthMiddleware.php';
+
+// Controllers
+require 'app/controllers/AuthController.php';
+require 'app/controllers/DashboardController.php';
+require 'app/controllers/MalwareController.php';
+require 'app/controllers/RansomwareController.php';
+require 'app/controllers/ReportingController.php';
+require 'app/controllers/SettingsController.php';
+require 'app/controllers/ProfileController.php';
+require 'app/controllers/NotificationController.php';
+require 'app/controllers/ThreatIntelligenceController.php';
+require 'app/controllers/NetworkAnalyticsController.php';
+require 'app/controllers/ViewController.php';
+
+// Legacy functions for backward compatibility (will be removed in future)
 require 'app/core/functions.php';
 require 'app/core/views.php';
+
+// ==================== INSTANTIATE CONTROLLERS ====================
+
+$authController = new AuthController();
+$dashboardController = new DashboardController();
+$malwareController = new MalwareController();
+$ransomwareController = new RansomwareController();
+$reportingController = new ReportingController();
+$settingsController = new SettingsController();
+$profileController = new ProfileController();
+$notificationController = new NotificationController();
+$threatController = new ThreatIntelligenceController();
+$networkController = new NetworkAnalyticsController();
+$viewController = new ViewController();
+
+// ==================== INSTANTIATE MIDDLEWARE ====================
+
+$sessionMiddleware = new SessionMiddleware();
+$apiMiddleware = new ApiAuthMiddleware();
+
+// ==================== HELPER FUNCTIONS ====================
+
+/**
+ * Session middleware wrapper for backward compatibility
+ */
+function checkSession($requiredSession, $handler) {
+    global $sessionMiddleware;
+    return $sessionMiddleware->handle($handler);
+}
+
+/**
+ * API middleware wrapper for backward compatibility
+ */
+function checkApi($handler) {
+    global $apiMiddleware;
+    return $apiMiddleware->handle($handler);
+}
 
 //Starting FastRoute Library
 use FastRoute\RouteCollector;
 
-$dispatcher = FastRoute\simpleDispatcher(function (RouteCollector $r) {
+$dispatcher = FastRoute\simpleDispatcher(function (RouteCollector $r) use (
+    $authController, $dashboardController, $malwareController, $ransomwareController,
+    $reportingController, $settingsController, $profileController, $notificationController,
+    $threatController, $networkController, $viewController
+) {
 
-    $r->addRoute('GET', MDIR.'500', 'get_500_error_view');
-    
-    // Public routes (no authentication)
-    $r->addRoute('GET', MDIR.'login', 'get_login_view');
-    $r->addRoute('POST', MDIR . 'auth/login', 'handle_login');
-    $r->addRoute('GET', MDIR.'register', 'get_register_view');
-    $r->addRoute('POST', MDIR.'register', 'handle_Register');
-    $r->addRoute('GET', MDIR . 'logout', 'logout_user');
-    $r->addRoute('GET', MDIR . 'clearlogs', 'clear_traffic_logs');
+    // ==================== PUBLIC ROUTES (No Authentication) ====================
 
+    $r->addRoute('GET', MDIR.'500', [$viewController, 'show500Error']);
+    $r->addRoute('GET', MDIR.'login', [$viewController, 'showLogin']);
+    $r->addRoute('POST', MDIR . 'auth/login', [$authController, 'login']);
+    $r->addRoute('GET', MDIR.'register', [$viewController, 'showRegister']);
+    $r->addRoute('POST', MDIR.'register', [$authController, 'register']);
+    $r->addRoute('GET', MDIR . 'logout', [$authController, 'logout']);
+    $r->addRoute('POST', MDIR . 'verify-email', [$authController, 'verify']);
+    $r->addRoute('GET', MDIR . 'verify', [$viewController, 'showVerify']);
 
+    // Traffic log operations (public for testing)
+    $r->addRoute('POST', MDIR . 'start-logs', [$viewController, 'startLogsHandler']);
+    $r->addRoute('POST', MDIR . 'stop-logs', [$viewController, 'stopLogsHandler']);
+    $r->addRoute('GET', MDIR . 'clearlogs', [$viewController, 'clearTrafficLogs']);
 
-$r->addRoute('POST', MDIR . 'verify-email', 'handle_verification');
-$r->addRoute('GET', MDIR . 'verify', 'get_verify_page');
-
-
-
-    $r->addRoute('POST', MDIR . 'start-logs', 'startLogsHandler');
+    // Legacy routes (still using functions - to be refactored)
     $r->addRoute('POST', MDIR . 'start-model', 'startModelHandler');
-    $r->addRoute('POST', MDIR . 'stop-logs', 'stopLogsHandler');
-
     $r->addRoute('GET', MDIR . 'get-intrusion-chart-data', 'get_intrusion_chart_data');
     $r->addRoute('GET', MDIR . 'get-validated-alerts', checkSession('user_id', 'get_validated_alerts'));
     $r->addRoute('GET', MDIR . 'test-ip-validation', checkSession('user_id', 'test_ip_validation'));
 
-    // Protected routes (require authentication)
-    $r->addRoute('GET', MDIR . 'dashboard', checkSession('user_id', 'get_dashboard'));
+    // ==================== DASHBOARD ROUTES ====================
 
+    $r->addRoute('GET', MDIR . 'dashboard', checkSession('user_id', [$dashboardController, 'show']));
 
-// UPDATED ROUTES - Remove scan-path endpoint
-    $r->addRoute('GET', MDIR . 'ransomware', checkSession('user_id', 'get_ransomware_page'));
-    $r->addRoute('GET', MDIR . 'get-ransomware-activity', checkSession('user_id', 'get_ransomware_activity'));
-    $r->addRoute('GET', MDIR . 'get-ransomware-stats', checkSession('user_id', 'get_ransomware_stats')); 
-    $r->addRoute('GET', MDIR . 'check-ransomware-threats', checkSession('user_id', 'check_ransomware_threats'));
-    $r->addRoute('GET', MDIR . 'get-quarantine-files', checkSession('user_id', 'get_quarantine_files'));
-    $r->addRoute('GET', MDIR . 'get-scan-progress', checkSession('user_id', 'get_scan_progress'));
-    $r->addRoute('GET', MDIR . 'get-monitor-status', checkSession('user_id', 'get_monitor_status'));
+    // ==================== RANSOMWARE ROUTES ====================
 
-    $r->addRoute('POST', MDIR . 'start-full-scan', checkSession('user_id', 'start_full_scan'));
-    $r->addRoute('POST', MDIR . 'start-quick-scan', checkSession('user_id', 'start_quick_scan'));
-    $r->addRoute('POST', MDIR . 'start-ransomware-monitor', checkSession('user_id', 'start_ransomware_monitor'));
-    $r->addRoute('POST', MDIR . 'stop-ransomware-monitor', checkSession('user_id', 'stop_ransomware_monitor'));
-    $r->addRoute('POST', MDIR . 'isolate-threats', checkSession('user_id', 'isolate_threats'));
-    $r->addRoute('POST', MDIR . 'restore-quarantine-file', checkSession('user_id', 'restore_quarantine_file'));
-    $r->addRoute('POST', MDIR . 'delete-quarantine-file', checkSession('user_id', 'delete_quarantine_file'));
-    $r->addRoute('POST', MDIR . 'update-signatures', checkSession('user_id', 'update_signatures'));
-    $r->addRoute('POST', MDIR . 'restore-backup', checkSession('user_id', 'restore_backup'));
+    $r->addRoute('GET', MDIR . 'ransomware', checkSession('user_id', [$ransomwareController, 'show']));
+    $r->addRoute('GET', MDIR . 'get-ransomware-activity', checkSession('user_id', [$ransomwareController, 'getActivity']));
+    $r->addRoute('GET', MDIR . 'get-ransomware-stats', checkSession('user_id', [$ransomwareController, 'getStats']));
+    $r->addRoute('GET', MDIR . 'check-ransomware-threats', checkSession('user_id', [$ransomwareController, 'checkThreats']));
+    $r->addRoute('GET', MDIR . 'get-quarantine-files', checkSession('user_id', [$ransomwareController, 'getQuarantineFiles']));
+    $r->addRoute('GET', MDIR . 'get-scan-progress', checkSession('user_id', [$ransomwareController, 'getScanProgress']));
+    $r->addRoute('GET', MDIR . 'get-monitor-status', checkSession('user_id', [$ransomwareController, 'getStatus']));
 
+    $r->addRoute('POST', MDIR . 'start-full-scan', checkSession('user_id', [$ransomwareController, 'startFullScan']));
+    $r->addRoute('POST', MDIR . 'start-quick-scan', checkSession('user_id', [$ransomwareController, 'startQuickScan']));
+    $r->addRoute('POST', MDIR . 'start-ransomware-monitor', checkSession('user_id', [$ransomwareController, 'startMonitor']));
+    $r->addRoute('POST', MDIR . 'stop-ransomware-monitor', checkSession('user_id', [$ransomwareController, 'stopMonitor']));
+    $r->addRoute('POST', MDIR . 'isolate-threats', checkSession('user_id', [$ransomwareController, 'isolateThreats']));
+    $r->addRoute('POST', MDIR . 'restore-quarantine-file', checkSession('user_id', [$ransomwareController, 'restoreFile']));
+    $r->addRoute('POST', MDIR . 'delete-quarantine-file', checkSession('user_id', [$ransomwareController, 'deleteFile']));
+    $r->addRoute('POST', MDIR . 'update-signatures', checkSession('user_id', [$ransomwareController, 'updateSignatures']));
+    $r->addRoute('POST', MDIR . 'restore-backup', checkSession('user_id', [$ransomwareController, 'restoreBackup']));
 
+    // ==================== MALWARE ROUTES ====================
 
-    // Malware Analysis Module
-    $r->addRoute('GET', MDIR . 'malware', checkSession('user_id', 'get_malware_page'));
-    $r->addRoute('GET', MDIR . 'get-malware-stats', checkSession('user_id', 'get_malware_stats'));
-    $r->addRoute('GET', MDIR . 'get-all-malware-reports', checkSession('user_id', 'get_all_malware_reports'));
-    $r->addRoute('GET', MDIR . 'get-malware-report', checkSession('user_id', 'get_malware_report'));
-    $r->addRoute('GET', MDIR . 'get-scan-queue', checkSession('user_id', 'get_scan_queue'));
-    $r->addRoute('GET', MDIR . 'get-malware-scan-progress', checkSession('user_id', 'get_malware_scan_progress'));
+    $r->addRoute('GET', MDIR . 'malware', checkSession('user_id', [$malwareController, 'show']));
+    $r->addRoute('GET', MDIR . 'get-malware-stats', checkSession('user_id', [$malwareController, 'getStats']));
+    $r->addRoute('GET', MDIR . 'get-all-malware-reports', checkSession('user_id', [$malwareController, 'getAllReports']));
+    $r->addRoute('GET', MDIR . 'get-malware-report', checkSession('user_id', [$malwareController, 'getReport']));
+    $r->addRoute('GET', MDIR . 'get-scan-queue', checkSession('user_id', [$malwareController, 'getScanQueue']));
+    $r->addRoute('GET', MDIR . 'get-malware-scan-progress', checkSession('user_id', [$malwareController, 'getScanProgress']));
 
-    $r->addRoute('POST', MDIR . 'upload-malware-sample', checkSession('user_id', 'upload_malware_sample'));
-    $r->addRoute('POST', MDIR . 'start-malware-scan', checkSession('user_id', 'start_malware_scan'));
-    $r->addRoute('POST', MDIR . 'delete-malware-sample', checkSession('user_id', 'delete_malware_sample'));
-    $r->addRoute('POST', MDIR . 'export-malware-report', checkSession('user_id', 'export_malware_report'));
-    // $r->addRoute('POST', MDIR . 'start-behavioral-analysis', checkSession('user_id', 'start_behavioral_analysis'));
+    $r->addRoute('POST', MDIR . 'upload-malware-sample', checkSession('user_id', [$malwareController, 'uploadSample']));
+    $r->addRoute('POST', MDIR . 'start-malware-scan', checkSession('user_id', [$malwareController, 'startScan']));
+    $r->addRoute('POST', MDIR . 'delete-malware-sample', checkSession('user_id', [$malwareController, 'deleteSample']));
+    $r->addRoute('POST', MDIR . 'export-malware-report', checkSession('user_id', [$malwareController, 'exportReport']));
 
+    // ==================== REPORTING ROUTES ====================
 
-    
+    $r->addRoute('GET', MDIR . 'reporting', checkSession('user_id', [$reportingController, 'show']));
+    $r->addRoute('GET', MDIR . 'get-reporting-data', checkSession('user_id', [$reportingController, 'getData']));
+    $r->addRoute('GET', MDIR . 'generate-executive-summary', checkSession('user_id', [$reportingController, 'getExecutiveSummary']));
+    $r->addRoute('GET', MDIR . 'get-network-statistics', checkSession('user_id', [$reportingController, 'getNetworkStats']));
+    $r->addRoute('GET', MDIR . 'get-threat-timeline', checkSession('user_id', [$reportingController, 'getThreatTimeline']));
+    $r->addRoute('POST', MDIR . 'export-report-pdf', checkSession('user_id', [$reportingController, 'exportPDF']));
+    $r->addRoute('POST', MDIR . 'download-report', checkSession('user_id', [$reportingController, 'downloadReport']));
+    $r->addRoute('POST', MDIR . 'email-report', checkSession('user_id', [$reportingController, 'emailReport']));
 
-// REMOVED: scan-path endpoint
+    // ==================== PROFILE ROUTES ====================
 
+    $r->addRoute('GET', MDIR . 'profile', checkSession('user_id', [$profileController, 'show']));
+    $r->addRoute('POST', MDIR . 'update-profile', checkSession('user_id', [$profileController, 'updateProfile']));
+    $r->addRoute('POST', MDIR . 'upload-profile-picture', checkSession('user_id', [$profileController, 'uploadPicture']));
+    $r->addRoute('POST', MDIR . 'delete-profile-picture', checkSession('user_id', [$profileController, 'deletePicture']));
+    $r->addRoute('POST', MDIR . 'change-password', checkSession('user_id', [$profileController, 'changePassword']));
 
-        $r->addRoute('GET', MDIR . 'reporting', checkSession('user_id', 'get_reporting_page'));
-$r->addRoute('GET', MDIR . 'get-reporting-data', checkSession('user_id', 'get_reporting_data'));
-$r->addRoute('GET', MDIR . 'generate-executive-summary', checkSession('user_id', 'generate_executive_summary'));
-$r->addRoute('GET', MDIR . 'get-network-statistics', checkSession('user_id', 'get_network_statistics'));
-$r->addRoute('GET', MDIR . 'get-threat-timeline', checkSession('user_id', 'get_threat_timeline'));
-$r->addRoute('POST', MDIR . 'export-report-pdf', checkSession('user_id', 'export_report_pdf'));
+    // ==================== SETTINGS ROUTES ====================
 
-
-// Profile Management Routes
-    $r->addRoute('GET', MDIR . 'profile', checkSession('user_id', 'get_profile_page'));
-    $r->addRoute('POST', MDIR . 'update-profile', checkSession('user_id', 'update_profile'));
-    $r->addRoute('POST', MDIR . 'upload-profile-picture', checkSession('user_id', 'upload_profile_picture'));
-    $r->addRoute('POST', MDIR . 'delete-profile-picture', checkSession('user_id', 'delete_profile_picture'));
-    $r->addRoute('POST', MDIR . 'change-password', checkSession('user_id', 'change_password'));
-
-    $r->addRoute('POST', MDIR . 'download-report', checkSession('user_id', 'handle_download_report'));
-
-$r->addRoute('POST', MDIR . 'email-report', checkSession('user_id', 'handle_email_report'));
-
-
-
-
-    // ==================== SETTINGS MODULE ROUTES ====================
-
-// Settings page
-$r->addRoute('GET', MDIR . 'settings', checkSession('user_id', 'get_settings_page'));
-
-// Password management
-$r->addRoute('POST', MDIR . 'update-password', checkSession('user_id', 'handle_update_password'));
-
-// System settings
-$r->addRoute('POST', MDIR . 'save-settings', checkSession('user_id', 'handle_save_settings'));
-$r->addRoute('POST', MDIR . 'save-api-keys', checkSession('user_id', 'handle_save_api_keys'));
-
-// Data management
-$r->addRoute('POST', MDIR . 'clear-all-logs', checkSession('user_id', 'handle_clear_all_logs'));
-$r->addRoute('POST', MDIR . 'export-user-data', checkSession('user_id', 'handle_export_user_data'));
-
-// Session management
-$r->addRoute('POST', MDIR . 'terminate-sessions', checkSession('user_id', 'handle_terminate_sessions'));
-
-// Account management
-$r->addRoute('POST', MDIR . 'delete-account', checkSession('user_id', 'handle_delete_account'));
-
-// Statistics
-$r->addRoute('GET', MDIR . 'get-user-stats', checkSession('user_id', 'handle_get_user_stats'));
+    $r->addRoute('GET', MDIR . 'settings', checkSession('user_id', [$settingsController, 'show']));
+    $r->addRoute('POST', MDIR . 'update-password', checkSession('user_id', [$authController, 'updatePassword']));
+    $r->addRoute('POST', MDIR . 'save-settings', checkSession('user_id', [$settingsController, 'saveSettings']));
+    $r->addRoute('POST', MDIR . 'save-api-keys', checkSession('user_id', [$settingsController, 'saveApiKeys']));
+    $r->addRoute('POST', MDIR . 'clear-all-logs', checkSession('user_id', [$viewController, 'clearAllLogs']));
+    $r->addRoute('POST', MDIR . 'export-user-data', checkSession('user_id', [$profileController, 'exportData']));
+    $r->addRoute('POST', MDIR . 'terminate-sessions', checkSession('user_id', [$profileController, 'terminateSessions']));
+    $r->addRoute('POST', MDIR . 'delete-account', checkSession('user_id', [$profileController, 'deleteAccount']));
+    $r->addRoute('GET', MDIR . 'get-user-stats', checkSession('user_id', [$settingsController, 'getUserStats']));
 
     // ==================== NOTIFICATION ROUTES ====================
-    $r->addRoute('GET', MDIR . 'get-notifications', checkSession('user_id', 'handle_get_notifications'));
-    $r->addRoute('POST', MDIR . 'mark-notification-read', checkSession('user_id', 'handle_mark_notification_read'));
-    $r->addRoute('POST', MDIR . 'mark-all-notifications-read', checkSession('user_id', 'handle_mark_all_notifications_read'));
-    $r->addRoute('POST', MDIR . 'delete-notification', checkSession('user_id', 'handle_delete_notification'));
-    $r->addRoute('POST', MDIR . 'clear-all-notifications', checkSession('user_id', 'handle_clear_all_notifications'));
 
+    $r->addRoute('GET', MDIR . 'get-notifications', checkSession('user_id', [$notificationController, 'getNotifications']));
+    $r->addRoute('POST', MDIR . 'mark-notification-read', checkSession('user_id', [$notificationController, 'markAsRead']));
+    $r->addRoute('POST', MDIR . 'mark-all-notifications-read', checkSession('user_id', [$notificationController, 'markAllAsRead']));
+    $r->addRoute('POST', MDIR . 'delete-notification', checkSession('user_id', [$notificationController, 'deleteNotification']));
+    $r->addRoute('POST', MDIR . 'clear-all-notifications', checkSession('user_id', [$notificationController, 'clearAll']));
 
-    // ADD THESE ROUTES TO YOUR routes/routes.php FILE
+    // ==================== THREAT INTELLIGENCE ROUTES ====================
 
-// ==================== THREAT INTELLIGENCE ROUTES ====================
-$r->addRoute('GET', MDIR . 'threat-intelligence', checkSession('user_id', 'get_threat_intelligence_page'));
-$r->addRoute('GET', MDIR . 'get-threat-feeds', checkSession('user_id', 'get_threat_feeds'));
-$r->addRoute('GET', MDIR . 'get-threat-actors', checkSession('user_id', 'get_threat_actors'));
-$r->addRoute('GET', MDIR . 'get-iocs', checkSession('user_id', 'get_iocs'));
-$r->addRoute('GET', MDIR . 'get-vulnerabilities', checkSession('user_id', 'get_vulnerabilities'));
-$r->addRoute('POST', MDIR . 'block-ioc', checkSession('user_id', 'block_ioc'));
-$r->addRoute('POST', MDIR . 'whitelist-ioc', checkSession('user_id', 'whitelist_ioc'));
+    $r->addRoute('GET', MDIR . 'threat-intelligence', checkSession('user_id', [$threatController, 'show']));
+    $r->addRoute('GET', MDIR . 'get-threat-feeds', checkSession('user_id', [$threatController, 'getThreatFeeds']));
+    $r->addRoute('GET', MDIR . 'get-threat-actors', checkSession('user_id', [$threatController, 'getThreatActors']));
+    $r->addRoute('GET', MDIR . 'get-iocs', checkSession('user_id', [$threatController, 'getIOCs']));
+    $r->addRoute('GET', MDIR . 'get-vulnerabilities', checkSession('user_id', [$threatController, 'getVulnerabilities']));
+    $r->addRoute('POST', MDIR . 'block-ioc', checkSession('user_id', [$threatController, 'blockIOC']));
+    $r->addRoute('POST', MDIR . 'whitelist-ioc', checkSession('user_id', [$threatController, 'whitelistIOC']));
 
-// ==================== NETWORK ANALYTICS ROUTES ====================
-$r->addRoute('GET', MDIR . 'network-analytics', checkSession('user_id', 'get_network_analytics_page'));
-$r->addRoute('GET', MDIR . 'get-network-metrics', checkSession('user_id', 'get_network_metrics'));
-$r->addRoute('GET', MDIR . 'get-bandwidth-data', checkSession('user_id', 'get_bandwidth_data'));
-$r->addRoute('GET', MDIR . 'get-protocol-stats', checkSession('user_id', 'get_protocol_stats'));
-$r->addRoute('GET', MDIR . 'get-top-talkers', checkSession('user_id', 'get_top_talkers'));
-$r->addRoute('GET', MDIR . 'get-active-connections', checkSession('user_id', 'get_active_connections'));
-$r->addRoute('GET', MDIR . 'get-packet-activity', checkSession('user_id', 'get_packet_activity'));
+    // ==================== NETWORK ANALYTICS ROUTES ====================
 
-    /**
-     * GDPR Routes
-     */
+    $r->addRoute('GET', MDIR . 'network-analytics', checkSession('user_id', [$networkController, 'show']));
+    $r->addRoute('GET', MDIR . 'get-network-metrics', checkSession('user_id', [$networkController, 'getMetrics']));
+    $r->addRoute('GET', MDIR . 'get-bandwidth-data', checkSession('user_id', [$networkController, 'getBandwidthData']));
+    $r->addRoute('GET', MDIR . 'get-protocol-stats', checkSession('user_id', [$networkController, 'getProtocolStats']));
+    $r->addRoute('GET', MDIR . 'get-top-talkers', checkSession('user_id', [$networkController, 'getTopTalkers']));
+    $r->addRoute('GET', MDIR . 'get-active-connections', checkSession('user_id', [$networkController, 'getActiveConnections']));
+    $r->addRoute('GET', MDIR . 'get-packet-activity', checkSession('user_id', [$networkController, 'getPacketActivity']));
+
+    // ==================== GDPR ROUTES ====================
+
     $r->addRoute('GET', MDIR . 'gdpr/verify/{token}', 'get_gdpr_verify_page');
 
-    /**
-     * Azure SSO Login Routes
-     * File Location : app/core/Azure/functions.php
-     */
-    // $r->addRoute('GET', MDIR.'loginAzure', 'authenticate_azureuser');
-    // $r->addRoute('GET', MDIR.'AzureCallback', 'authenticate_azurecallback');
-    // $r->addRoute('GET', MDIR.'AzureError', 'authenticate_azure_error');
-
-    /**
-     * Contract Routes
-     */
-    // $r->addRoute('GET', MDIR . 'test-contracts', 'test_get_contracts');
-
-    //Testing purpose
-    // $r->addRoute('GET', MDIR.'test', 'testing');
+    // ==================== LEGACY/TEST ROUTES ====================
 
     if(is_file('routes/test-routes.php'))
     {
@@ -205,13 +245,14 @@ switch ($routeInfo[0]) {
         header("HTTP/1.0 404 Not Found");
         require 'app/views/error/404.php';
         break;
-        
+
     case FastRoute\Dispatcher::METHOD_NOT_ALLOWED:
         // 405 Method Not Allowed
         header("HTTP/1.0 405 Method Not Allowed");
-        display_error("405 Method Not Allowed");
+        $alertService = new AlertService();
+        $alertService->displayError("405 Method Not Allowed");
         break;
-        
+
     case FastRoute\Dispatcher::FOUND:
         // Handle the request
         $handler = $routeInfo[1];

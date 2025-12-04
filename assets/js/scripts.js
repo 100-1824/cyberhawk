@@ -410,17 +410,10 @@ class CyberHawkApp {
 // Legacy Function Support (for backward compatibility)
 // ============================================================================
 
-function toggleSidebar() {
-    if (window.cyberHawkApp && window.cyberHawkApp.uiManager) {
-        window.cyberHawkApp.uiManager.toggleSidebar();
-    }
-}
-
-function clearAllNotifications() {
-    if (window.cyberHawkApp && window.cyberHawkApp.notificationManager) {
-        window.cyberHawkApp.notificationManager.clearAll();
-    }
-}
+// Legacy wrapper functions removed - use class instances directly
+// To toggle sidebar: window.cyberHawkApp.uiManager.toggleSidebar()
+// To clear IDS alerts: window.cyberHawkApp.notificationManager.clearAll()
+// To clear task notifications: clearAllNotifications() from notifications.js
 
 
 // ============================================================================

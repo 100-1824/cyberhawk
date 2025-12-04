@@ -1,5 +1,27 @@
 <?php
-
+/**
+ * ============================================================================
+ * ⚠️  DEPRECATION NOTICE - MOST VIEW FUNCTIONS MOVED TO ViewController
+ * ============================================================================
+ *
+ * This file has been LARGELY DEPRECATED as part of the class-based refactoring.
+ * Most view functions have been moved to:
+ *   - app/controllers/ViewController.php
+ *   - Individual controller classes (DashboardController, ProfileController, etc.)
+ *
+ * REPLACED FUNCTIONS (DO NOT USE - Use controller methods instead):
+ *   - Page loaders: ViewController class
+ *   - Traffic handlers: ViewController class
+ *   - View rendering: Individual controller show() methods
+ *
+ * STILL ACTIVE (Legacy routes not yet migrated):
+ *   - startModelHandler()
+ *   - get_intrusion_chart_data()
+ *   - get_gdpr_verify_page()
+ *
+ * TODO: Migrate remaining view functions to controllers and remove this file.
+ * ============================================================================
+ */
 
 function get_500_error_view()
 {

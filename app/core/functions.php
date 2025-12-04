@@ -12,7 +12,7 @@
  */
 //Calling The DB Class
 use PHPMailer\PHPMailer\PHPMailer;
-    use PHPMailer\PHPMailer\Exception;
+use PHPMailer\PHPMailer\Exception;
 $oConnection = new dbConnection();
 
 
@@ -3223,26 +3223,7 @@ function handle_clear_all_notifications()
 /**
  * Threat Intelligence Page Loader
  */
-function get_threat_intelligence_page()
-{
-    if (!isset($_SESSION['user_id'])) {
-        header("Location: " . MDIR . "login");
-        exit;
-    }
-    require 'app/views/pages/threat_intelligence.php';
-}
 
-/**
- * Network Analytics Page Loader
- */
-function get_network_analytics_page()
-{
-    if (!isset($_SESSION['user_id'])) {
-        header("Location: " . MDIR . "login");
-        exit;
-    }
-    require 'app/views/pages/network_analytics.php';
-}
 
 // ==================== ADD TO app/core/functions.php ====================
 

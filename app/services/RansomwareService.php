@@ -13,12 +13,14 @@
 class RansomwareService {
 
     private $db;
+    private $notificationService;
 
     /**
      * Constructor
      */
     public function __construct() {
         $this->db = new DatabaseHelper();
+        $this->notificationService = new NotificationService();
     }
 
     /**
@@ -54,8 +56,6 @@ class RansomwareService {
             return;
         }
 
-        // Load notifications helper
-        require_once DIR . "app/helpers/notifications.php";
 
         try {
             if (file_exists($pidFile)) {
@@ -87,7 +87,7 @@ class RansomwareService {
 
                 // Add notification
                 if ($userId) {
-                    add_notification(
+                    $this->notificationService->add(
                         $userId,
                         'info',
                         'Ransomware Monitor Started',
@@ -133,8 +133,6 @@ class RansomwareService {
         $projectDir = rtrim(DIR, '/\\');
         $pidFile = $projectDir . '/assets/data/ransomware_pid.json';
 
-        // Load notifications helper
-        require_once DIR . "app/helpers/notifications.php";
 
         try {
             if (!file_exists($pidFile)) {
@@ -155,7 +153,7 @@ class RansomwareService {
 
                 // Add notification
                 if ($userId) {
-                    add_notification(
+                    $this->notificationService->add(
                         $userId,
                         'warning',
                         'Ransomware Monitor Stopped',
@@ -366,8 +364,6 @@ class RansomwareService {
             return;
         }
 
-        // Load notifications helper
-        require_once DIR . "app/helpers/notifications.php";
 
         try {
             $progressFile = $projectDir . '/assets/data/scan_progress.json';
@@ -393,7 +389,7 @@ class RansomwareService {
 
                 // Add notification
                 if ($userId) {
-                    add_notification(
+                    $this->notificationService->add(
                         $userId,
                         'info',
                         'Full System Scan Started',
@@ -457,8 +453,6 @@ class RansomwareService {
             return;
         }
 
-        // Load notifications helper
-        require_once DIR . "app/helpers/notifications.php";
 
         try {
             $progressFile = $projectDir . '/assets/data/scan_progress.json';
@@ -477,7 +471,7 @@ class RansomwareService {
             if (is_numeric($pid) && $pid > 0) {
                 // Add notification
                 if ($userId) {
-                    add_notification(
+                    $this->notificationService->add(
                         $userId,
                         'info',
                         'Quick Scan Started',

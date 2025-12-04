@@ -44,112 +44,11 @@ $oConnection = new dbConnection();
 
 
 /**
- * Middleware function to check session and validate session ID from the database.
- *
- * @param string $requiredSession The session key that must be set.
- * @param callable|string $handler The handler function to call if the session key is set.
- * @return callable The middleware function that checks the session and calls the handler.
+ * ⚠️ DEPRECATED - Moved to SessionMiddleware class
+ * This function is now a wrapper in routes.php that uses SessionMiddleware
+ * Do NOT use this directly - it will cause redeclaration errors
  */
-function checkSession($requiredSession, $handler) {
-    return function($vars) use ($requiredSession, $handler) {
-
-        // Check if the required session key is set in the PHP session
-        if (!isset($_SESSION[$requiredSession])) {
-            header('HTTP/1.1 401 Unauthorized');
-            header('Location: ' . MDIR . 'login');
-            exit;
-        }
-
-        // ==================== SESSION TIMEOUT CHECK (from user settings) ====================
-        // Load user's session timeout setting
-        $userId = $_SESSION['user_id'];
-        $timeoutSettingQuery = "SELECT setting_value FROM system_settings WHERE user_id = ? AND setting_key = 'session_timeout'";
-        $timeoutResult = mysqli_prepared_query($timeoutSettingQuery, 'i', [$userId]);
-
-        $sessionTimeoutMinutes = 30; // Default 30 minutes
-        if (!empty($timeoutResult)) {
-            $sessionTimeoutMinutes = intval($timeoutResult[0]['setting_value']);
-        }
-
-        // Only check timeout if not set to "Never" (0)
-        if ($sessionTimeoutMinutes > 0) {
-            $timeout = $sessionTimeoutMinutes * 60; // Convert to seconds
-
-            if (isset($_SESSION['LAST_ACTIVITY'])) {
-                $elapsedTime = time() - $_SESSION['LAST_ACTIVITY'];
-                if ($elapsedTime > $timeout) {
-                    // Session expired due to inactivity
-                    session_destroy();
-                    setcookie('session_id', '', time() - 3600, '/', '', false, true);
-                    header('HTTP/1.1 401 Unauthorized');
-                    header('Location: ' . MDIR . 'login?timeout=1');
-                    exit;
-                }
-            }
-
-            // Update last activity time
-            $_SESSION['LAST_ACTIVITY'] = time();
-        }
-
-        // Check if the session ID from the cookie matches the session ID stored in the PHP session
-        if (!isset($_COOKIE['session_id']) || $_COOKIE['session_id'] !== session_id()) {
-            header('HTTP/1.1 401 Unauthorized');
-            header('Location: ' . MDIR . 'login');
-            exit;
-        }
-
-        // Fetch the session ID from the database using USER_ID (already set above)
-        
-        // FIX: Get the user's email first, then check session
-        $userQuery = "SELECT email FROM users WHERE id = ?";
-        $userResult = mysqli_prepared_query($userQuery, 'i', [$userId]);
-        
-        if (empty($userResult)) {
-            session_destroy();
-            header('HTTP/1.1 401 Unauthorized');
-            header('Location: ' . MDIR . 'login');
-            exit;
-        }
-        
-        $userEmail = $userResult[0]['email'];
-        
-        // Now query the session table with the correct email
-        $sql = "SELECT session FROM user_sessions WHERE email = ?";
-        $row = mysqli_prepared_query($sql, 's', [$userEmail]);
-        
-        if(!empty($row))
-        {
-            $dbSessionId = $row[0]['session'];
-            // Check if the session ID from the database matches the session ID from the cookie and PHP session
-            if ($dbSessionId !== session_id()) {
-                // Log out the user
-                session_destroy();
-                setcookie('session_id', '', time() - 3600, '/', '', false, true);
-                header('HTTP/1.1 401 Unauthorized');
-                header('Location: ' . MDIR . 'login');
-                exit;
-            }
-        }
-        else
-        {
-            session_destroy();
-            header('HTTP/1.1 401 Unauthorized');
-            header('Location: ' . MDIR . 'login');
-            exit;
-        }
-
-        // Call the handler function if the session is valid
-        if (is_callable($handler)) {
-            return call_user_func($handler, $vars);
-        } elseif (is_string($handler) && function_exists($handler)) {
-            return call_user_func($handler, $vars);
-        } else {
-            header('HTTP/1.1 500 Internal Server Error');
-            header('Location: ' . MDIR . '500');
-            exit;
-        }
-    };
-}
+// REMOVED: checkSession() - Now defined in routes.php as a wrapper for SessionMiddleware
 
 /**
  * Displays multiple error messages as alert boxes.
@@ -254,33 +153,11 @@ function mysqli_prepared_query($sql, $paramTypes = '', $params = []) {
 }
 
 /**
- * 
- * 
- * 
- * 
+ * ⚠️ DEPRECATED - Moved to ApiAuthMiddleware class
+ * This function is now a wrapper in routes.php that uses ApiAuthMiddleware
+ * Do NOT use this directly - it will cause redeclaration errors
  */
-function checkApi($handler) {
-    return function($vars) use ($handler) {
-        global $ApiEndPointToken;
-        $token = get_cronjob_auth_header();
-
-        if (check_user_api_from_header($token) === false) {
-            header('HTTP/1.1 401 Unauthorized');
-            echo json_encode(['error' => 1, 'message' => 'Unauthorized Access']);
-            exit;
-        }
-        // Pass the $token to the handler function
-        if (is_callable($handler)) {
-            return call_user_func($handler, $vars, $token);
-        } elseif (is_string($handler) && function_exists($handler)) {
-            return call_user_func($handler, $vars, $token);
-        } else {
-            header('HTTP/1.1 500 Internal Server Error');
-            header('Location: ' . MDIR . '500');
-            exit;
-        }
-    };
-}
+// REMOVED: checkApi() - Now defined in routes.php as a wrapper for ApiAuthMiddleware
 
 
 function areLogsEmpty() {

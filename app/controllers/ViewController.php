@@ -99,6 +99,7 @@ class ViewController {
             echo json_encode([
                 'success' => true,
                 'message' => 'Traffic monitoring started',
+                'pid' => $snifferPid,  // For frontend compatibility
                 'sniffer_pid' => $snifferPid,
                 'predict_pid' => $predictPid
             ]);
@@ -124,6 +125,7 @@ class ViewController {
             echo json_encode([
                 'success' => true,
                 'message' => 'Traffic monitoring started',
+                'pid' => $snifferPid,  // For frontend compatibility
                 'sniffer_pid' => $snifferPid,
                 'predict_pid' => $predictPid
             ]);

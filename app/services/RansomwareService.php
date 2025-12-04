@@ -34,37 +34,60 @@ class RansomwareService {
 
         $userId = $_SESSION['user_id'] ?? null;
         $projectDir = rtrim(DIR, '/\\');
-        $pythonPath = $projectDir . '/fyp/Scripts/python.exe';
-        $monitorScript = $projectDir . '/python/ranswomware/ransomware_monitor.py';
         $pidFile = $projectDir . '/assets/data/ransomware_pid.json';
+
+        // OS-aware Python and script paths
+        $isWindows = (stripos(PHP_OS, 'WIN') === 0);
+
+        if ($isWindows) {
+            // Windows: Try virtual environment first, then system Python
+            $pythonPath = $projectDir . '/fyp/Scripts/python.exe';
+            if (!file_exists($pythonPath)) {
+                $pythonPath = 'python'; // Use system Python
+            }
+        } else {
+            // Linux/Unix
+            $pythonPath = 'python3';
+        }
+
+        // Script path - check both possible folder names (typo and correct)
+        $monitorScript = $projectDir . '/python/ranswomware/ransomware_monitor_class.py';
+        if (!file_exists($monitorScript)) {
+            $monitorScript = $projectDir . '/python/ransomware/ransomware_monitor_class.py';
+        }
+        if (!file_exists($monitorScript)) {
+            $monitorScript = $projectDir . '/python/ranswomware/ransomware_monitor.py';
+        }
+        if (!file_exists($monitorScript)) {
+            $monitorScript = $projectDir . '/python/ransomware/ransomware_monitor.py';
+        }
 
         if (!file_exists($monitorScript)) {
             echo json_encode([
                 'success' => false,
-                'message' => 'Monitor script not found',
-                'path' => $monitorScript
+                'message' => 'Monitor script not found. Checked multiple locations.',
+                'paths_checked' => [
+                    $projectDir . '/python/ranswomware/ransomware_monitor_class.py',
+                    $projectDir . '/python/ransomware/ransomware_monitor_class.py',
+                ]
             ]);
             return;
         }
-
-        if (!file_exists($pythonPath)) {
-            echo json_encode([
-                'success' => false,
-                'message' => 'Python executable not found',
-                'path' => $pythonPath
-            ]);
-            return;
-        }
-
 
         try {
+            // Check if monitor is already running
             if (file_exists($pidFile)) {
                 $pidData = json_decode(file_get_contents($pidFile), true);
                 if (isset($pidData['monitor_pid'])) {
-                    $checkCmd = "powershell -Command \"Get-Process -Id " . $pidData['monitor_pid'] . " -ErrorAction SilentlyContinue\"";
+                    // OS-aware process check
+                    if ($isWindows) {
+                        $checkCmd = "powershell -Command \"Get-Process -Id " . $pidData['monitor_pid'] . " -ErrorAction SilentlyContinue\"";
+                    } else {
+                        $checkCmd = "ps -p " . $pidData['monitor_pid'] . " > /dev/null 2>&1 && echo 'running'";
+                    }
                     $result = shell_exec($checkCmd);
 
-                    if (!empty($result)) {
+                    if (!empty(trim($result))) {
                         echo json_encode([
                             'success' => true,
                             'message' => 'Monitor is already running',
@@ -75,7 +98,13 @@ class RansomwareService {
                 }
             }
 
-            $cmd = "powershell -Command \"Start-Process -FilePath '$pythonPath' -ArgumentList '$monitorScript' -WindowStyle Hidden -PassThru | Select-Object -ExpandProperty Id\"";
+            // OS-aware command execution
+            if ($isWindows) {
+                $cmd = "powershell -Command \"Start-Process -FilePath '$pythonPath' -ArgumentList '$monitorScript' -WindowStyle Hidden -PassThru | Select-Object -ExpandProperty Id\"";
+            } else {
+                $cmd = "$pythonPath \"$monitorScript\" > /dev/null 2>&1 & echo $!";
+            }
+
             $pid = trim(shell_exec($cmd));
 
             if (is_numeric($pid) && $pid > 0) {
@@ -133,6 +162,8 @@ class RansomwareService {
         $projectDir = rtrim(DIR, '/\\');
         $pidFile = $projectDir . '/assets/data/ransomware_pid.json';
 
+        // OS detection
+        $isWindows = (stripos(PHP_OS, 'WIN') === 0);
 
         try {
             if (!file_exists($pidFile)) {
@@ -147,7 +178,14 @@ class RansomwareService {
 
             if (isset($pidData['monitor_pid'])) {
                 $pid = $pidData['monitor_pid'];
-                $cmd = "powershell -Command \"Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue\"";
+
+                // OS-aware kill command
+                if ($isWindows) {
+                    $cmd = "powershell -Command \"Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue\"";
+                } else {
+                    $cmd = "kill -9 $pid 2>/dev/null";
+                }
+
                 shell_exec($cmd);
                 @unlink($pidFile);
 
@@ -194,6 +232,9 @@ class RansomwareService {
         $projectDir = rtrim(DIR, '/\\');
         $pidFile = $projectDir . '/assets/data/ransomware_pid.json';
 
+        // OS detection
+        $isWindows = (stripos(PHP_OS, 'WIN') === 0);
+
         if (!file_exists($pidFile)) {
             echo json_encode([
                 'running' => false,
@@ -206,7 +247,14 @@ class RansomwareService {
 
         if (isset($pidData['monitor_pid'])) {
             $pid = $pidData['monitor_pid'];
-            $cmd = "powershell -Command \"Get-Process -Id $pid -ErrorAction SilentlyContinue | Select-Object Id, ProcessName\"";
+
+            // OS-aware process check
+            if ($isWindows) {
+                $cmd = "powershell -Command \"Get-Process -Id $pid -ErrorAction SilentlyContinue | Select-Object Id, ProcessName\"";
+            } else {
+                $cmd = "ps -p $pid > /dev/null 2>&1 && echo 'running'";
+            }
+
             $result = shell_exec($cmd);
 
             if (!empty($result) && strpos($result, (string)$pid) !== false) {
@@ -345,25 +393,32 @@ class RansomwareService {
 
         $userId = $_SESSION['user_id'] ?? null;
         $projectDir = rtrim(DIR, '/\\');
-        $pythonPath = $projectDir . '/fyp/Scripts/python.exe';
+
+        // OS-aware Python and script paths
+        $isWindows = (stripos(PHP_OS, 'WIN') === 0);
+
+        if ($isWindows) {
+            $pythonPath = $projectDir . '/fyp/Scripts/python.exe';
+            if (!file_exists($pythonPath)) {
+                $pythonPath = 'python';
+            }
+        } else {
+            $pythonPath = 'python3';
+        }
+
+        // Script path - check both possible folder names (typo and correct)
         $scannerScript = $projectDir . '/python/ranswomware/ransomware_scanner.py';
+        if (!file_exists($scannerScript)) {
+            $scannerScript = $projectDir . '/python/ransomware/ransomware_scanner.py';
+        }
 
         if (!file_exists($scannerScript)) {
             echo json_encode([
                 'success' => false,
-                'message' => 'Scanner script not found at: ' . $scannerScript
+                'message' => 'Scanner script not found. Checked: python/ranswomware/ and python/ransomware/'
             ]);
             return;
         }
-
-        if (!file_exists($pythonPath)) {
-            echo json_encode([
-                'success' => false,
-                'message' => 'Python executable not found at: ' . $pythonPath
-            ]);
-            return;
-        }
-
 
         try {
             $progressFile = $projectDir . '/assets/data/scan_progress.json';
@@ -376,7 +431,13 @@ class RansomwareService {
                 'started_at' => date('Y-m-d H:i:s')
             ], JSON_PRETTY_PRINT));
 
-            $cmd = "powershell -Command \"Start-Process -FilePath '$pythonPath' -ArgumentList '$scannerScript --full-scan' -WindowStyle Hidden -PassThru | Select-Object -ExpandProperty Id\"";
+            // OS-aware command execution
+            if ($isWindows) {
+                $cmd = "powershell -Command \"Start-Process -FilePath '$pythonPath' -ArgumentList '$scannerScript --full-scan' -WindowStyle Hidden -PassThru | Select-Object -ExpandProperty Id\"";
+            } else {
+                $cmd = "$pythonPath \"$scannerScript\" --full-scan > /dev/null 2>&1 & echo $!";
+            }
+
             $pid = trim(shell_exec($cmd));
 
             if (is_numeric($pid) && $pid > 0) {
@@ -434,8 +495,24 @@ class RansomwareService {
 
         $userId = $_SESSION['user_id'] ?? null;
         $projectDir = rtrim(DIR, '/\\');
-        $pythonPath = $projectDir . '/fyp/Scripts/python.exe';
+
+        // OS-aware Python and script paths
+        $isWindows = (stripos(PHP_OS, 'WIN') === 0);
+
+        if ($isWindows) {
+            $pythonPath = $projectDir . '/fyp/Scripts/python.exe';
+            if (!file_exists($pythonPath)) {
+                $pythonPath = 'python';
+            }
+        } else {
+            $pythonPath = 'python3';
+        }
+
+        // Script path - check both possible folder names (typo and correct)
         $scannerScript = $projectDir . '/python/ranswomware/ransomware_scanner.py';
+        if (!file_exists($scannerScript)) {
+            $scannerScript = $projectDir . '/python/ransomware/ransomware_scanner.py';
+        }
 
         if (!file_exists($scannerScript)) {
             echo json_encode([
@@ -444,15 +521,6 @@ class RansomwareService {
             ]);
             return;
         }
-
-        if (!file_exists($pythonPath)) {
-            echo json_encode([
-                'success' => false,
-                'message' => 'Python executable not found'
-            ]);
-            return;
-        }
-
 
         try {
             $progressFile = $projectDir . '/assets/data/scan_progress.json';
@@ -465,7 +533,13 @@ class RansomwareService {
                 'started_at' => date('Y-m-d H:i:s')
             ], JSON_PRETTY_PRINT));
 
-            $cmd = "powershell -Command \"Start-Process -FilePath '$pythonPath' -ArgumentList '$scannerScript --quick-scan' -WindowStyle Hidden -PassThru | Select-Object -ExpandProperty Id\"";
+            // OS-aware command execution
+            if ($isWindows) {
+                $cmd = "powershell -Command \"Start-Process -FilePath '$pythonPath' -ArgumentList '$scannerScript --quick-scan' -WindowStyle Hidden -PassThru | Select-Object -ExpandProperty Id\"";
+            } else {
+                $cmd = "$pythonPath \"$scannerScript\" --quick-scan > /dev/null 2>&1 & echo $!";
+            }
+
             $pid = trim(shell_exec($cmd));
 
             if (is_numeric($pid) && $pid > 0) {

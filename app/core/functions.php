@@ -1,15 +1,39 @@
 <?php
 /**
- * Functions.php contains the main functions.
- * User functions and other related functions will be included with file names.
+ * ============================================================================
+ * ⚠️  DEPRECATION NOTICE - MOST FUNCTIONS HAVE BEEN MOVED TO CLASSES
+ * ============================================================================
  *
+ * This file has been LARGELY DEPRECATED as part of the class-based refactoring.
+ * Most functions have been moved to proper service classes in:
+ *   - app/services/ (Business logic)
+ *   - app/controllers/ (HTTP handlers)
+ *   - app/middleware/ (Session, Auth)
+ *   - app/infrastructure/ (Database, Alerts, Logs)
  *
- * Creates a session check middleware function.
+ * REPLACED FUNCTIONS (DO NOT USE - Use service classes instead):
+ *   - Authentication: AuthService class
+ *   - User Profile: UserProfileService class
+ *   - Notifications: NotificationService class
+ *   - Email: EmailService class
+ *   - Settings: SettingsService class
+ *   - Malware: MalwareService class
+ *   - Ransomware: RansomwareService class
+ *   - Reporting: ReportingService class
+ *   - Threat Intel: ThreatIntelligenceService class
+ *   - Network Analytics: NetworkAnalyticsService class
  *
- * @param string $requiredSession The session key that must be set.
- * @param callable|string $handler The handler function to call if the session key is set.
- * @return callable The middleware function that checks the session and calls the handler.
+ * STILL ACTIVE (Legacy routes not yet migrated):
+ *   - get_validated_alerts()
+ *   - test_ip_validation()
+ *   - checkSession() / checkApi() - Now use SessionMiddleware / ApiAuthMiddleware
+ *   - mysqli_prepared_query() - Now use DatabaseHelper
+ *   - display_error/success() - Now use AlertService
+ *
+ * TODO: Migrate remaining legacy routes to controllers and remove this file entirely.
+ * ============================================================================
  */
+
 //Calling The DB Class
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;

@@ -10,6 +10,7 @@ class AccountService {
 
     private $db;
     private $logManager;
+    private $notificationService;
 
     /**
      * Constructor
@@ -17,6 +18,7 @@ class AccountService {
     public function __construct() {
         $this->db = new DatabaseHelper();
         $this->logManager = new LogManager();
+        $this->notificationService = new NotificationService();
     }
 
     /**
@@ -57,6 +59,16 @@ class AccountService {
                 file_put_contents($filePath, json_encode([], JSON_PRETTY_PRINT));
             }
         }
+
+        // Add notification
+        $userId = $_SESSION['user_id'];
+        $this->notificationService->add(
+            $userId,
+            'info',
+            'Logs Cleared',
+            'All system logs have been cleared.',
+            []
+        );
 
         echo json_encode(['success' => true, 'message' => 'All logs cleared successfully']);
     }
@@ -135,6 +147,15 @@ class AccountService {
 
         $deleteSql = "DELETE FROM user_sessions WHERE user_id = ? AND session_id != ?";
         $this->db->query($deleteSql, 'is', [$userId, $currentSessionId]);
+
+        // Add notification
+        $this->notificationService->add(
+            $userId,
+            'warning',
+            'Sessions Terminated',
+            'All other browser sessions have been signed out.',
+            []
+        );
 
         echo json_encode(['success' => true, 'message' => 'All other sessions terminated']);
         exit;

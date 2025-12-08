@@ -517,20 +517,47 @@ def write_flows_periodically():
 
 def check_permissions():
     """Check if running with appropriate permissions"""
+    error_log = r"E:/xampp/htdocs/cyberhawk/assets/data/sniffer_error.log"
+    
     if os.name == 'nt':
         try:
             import ctypes
             is_admin = ctypes.windll.shell32.IsUserAnAdmin()
             if not is_admin:
-                print("\n" + "="*60)
-                print("⚠️  WARNING: NOT RUNNING AS ADMINISTRATOR!")
-                print("="*60)
-                print("Packet capture requires Administrator privileges.")
-                print("Continuing anyway... (capture may fail)")
-                print("="*60)
-                return False
-        except:
-            pass
+                error_msg = """
+============================================================
+ERROR: NOT RUNNING AS ADMINISTRATOR!
+============================================================
+Packet capture requires Administrator privileges.
+
+SOLUTION:
+1. Close this and use start_cyberhawk.bat instead
+   (Right-click > Run as Administrator)
+
+OR
+
+2. Run XAMPP Control Panel as Administrator:
+   - Close XAMPP
+   - Right-click xampp-control.exe
+   - Select "Run as administrator"
+   - Start Apache
+   - Then click "Start Logs" in dashboard
+============================================================
+"""
+                print(error_msg)
+                # Log to file so web interface can detect
+                with open(error_log, 'w') as f:
+                    f.write(f"ADMIN_REQUIRED\n")
+                    f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+                    f.write(error_msg)
+                # Exit with error
+                sys.exit(1)
+            else:
+                # Clear error log if running as admin
+                if os.path.exists(error_log):
+                    os.remove(error_log)
+        except Exception as e:
+            print(f"[!] Permission check failed: {e}")
     else:
         if os.geteuid() != 0:
             print("[!] WARNING: Not running as root!")

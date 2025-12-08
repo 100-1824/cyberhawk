@@ -28,3 +28,10 @@
     <li><a href="<?= MDIR ?>reporting"><i class="bi bi-file-earmark-text icon"></i><span class="text">Reporting</span></a></li>
   </ul>
 </nav>
+
+<script>
+  function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('minimized');
+  }
+</script>

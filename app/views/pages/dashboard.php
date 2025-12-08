@@ -444,6 +444,9 @@ if (strpos($uri, $basePath) === 0) {
 
 </body>
 <script>
+      // Define LOGS_URL for traffic log data
+      const LOGS_URL = "assets/data/traffic_log.json";
+
       const CONFIG = {
         UPDATE_INTERVAL: 3000, // 3 seconds
         LOGS_CHECK_TIMEOUT: 15000, // 15 seconds
@@ -705,14 +708,13 @@ if (strpos($uri, $basePath) === 0) {
             dataType: 'json',
             success: function(data) {
                 if (!Array.isArray(data)) {
-                    console.warn("Invalid data format:", data);
                     return;
                 }
 
                 processMetricsData(data);
             },
             error: function(xhr, status, error) {
-                console.error("Error fetching metrics:", error);
+                // Silent error handling
             }
         });
     }
@@ -923,7 +925,6 @@ if (strpos($uri, $basePath) === 0) {
             dataType: 'text',
             success: function(responseText) {
                 if (!responseText) {
-                    console.warn("Empty logs response");
                     return;
                 }
 
@@ -931,19 +932,17 @@ if (strpos($uri, $basePath) === 0) {
                 try {
                     data = JSON.parse(responseText);
                 } catch (e) {
-                    console.error("Invalid JSON:", e);
                     return;
                 }
 
                 if (!Array.isArray(data)) {
-                    console.warn("Logs not array:", data);
                     return;
                 }
 
                 updateLogsTable(data);
             },
             error: function(xhr, status, error) {
-                console.error("Failed to load logs:", error);
+                // Silent error handling
             }
         });
     }
@@ -996,20 +995,14 @@ if (strpos($uri, $basePath) === 0) {
 
                     // Log validation statistics
                     if (response.stats) {
-                        console.log('Alert Validation Stats:', response.stats);
-                        if (response.stats.filtered_alerts > 0) {
-                            console.log(`✓ Filtered ${response.stats.filtered_alerts} false positives`);
-                        }
+                        // Stats: response.stats
                     }
                 } else {
-                    console.warn("Failed to load validated alerts:", response.message);
                     updateAlertsTable([]);
                 }
             },
             error: function(xhr, status, error) {
-                console.error("Error loading validated alerts:", error);
                 // Fallback to direct file access if API fails
-                console.log("Falling back to direct alerts.json access...");
                 $.ajax({
                     url: "assets/data/alerts.json?ts=" + Date.now(),
                     dataType: 'json',
@@ -1068,7 +1061,9 @@ if (strpos($uri, $basePath) === 0) {
             dataType: "json",
             success: function(response) {
                 if (response.success) {
-                    logContainer.textContent += `[INFO] Traffic sniffer started\n[INFO] PID: ${response.pid}\n[INFO] Wait for 10 sec\n`;
+                    logContainer.textContent += `[INFO] Traffic sniffer started (PID: ${response.sniffer_pid})\n`;
+                    logContainer.textContent += `[INFO] Prediction model started (PID: ${response.predict_pid})\n`;
+                    logContainer.textContent += `[INFO] Waiting for traffic data (10-15 sec)...\n`;
                     logContainer.scrollTop = logContainer.scrollHeight;
 
                     let checkLogsLoaded;
@@ -1096,6 +1091,9 @@ if (strpos($uri, $basePath) === 0) {
                     }, 1000);
                 } else {
                     logContainer.textContent += `[ERROR] ${response.message}\n`;
+                    if (response.debug) {
+                        logContainer.textContent += `[DEBUG] ${response.debug}\n`;
+                    }
                     $("#logsLoadingSpinner").addClass("d-none");
                     $("#startLogsBtn").prop('disabled', false);
                 }

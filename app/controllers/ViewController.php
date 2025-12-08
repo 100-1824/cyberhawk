@@ -9,12 +9,14 @@
 class ViewController {
 
     private $logManager;
+    private $notificationService;
 
     /**
      * Constructor
      */
     public function __construct() {
         $this->logManager = new LogManager();
+        $this->notificationService = new NotificationService();
     }
 
     /**
@@ -78,15 +80,52 @@ class ViewController {
         $isWindows = (stripos(PHP_OS, 'WIN') === 0);
 
         if ($isWindows) {
-            // Windows
-            $snifferCommand = "python \"$snifferScript\" > NUL 2>&1";
-            $predictCommand = "python \"$predictScript\" > NUL 2>&1";
-
-            $snifferPid = shell_exec("powershell -Command \"Start-Process python -ArgumentList '\"$snifferScript\"' -WindowStyle Hidden -PassThru | Select-Object -ExpandProperty Id\"");
-            $predictPid = shell_exec("powershell -Command \"Start-Process python -ArgumentList '\"$predictScript\"' -WindowStyle Hidden -PassThru | Select-Object -ExpandProperty Id\"");
+            // Windows - Use fyp venv Python for correct dependencies
+            $pythonExe = DIR . 'fyp/Scripts/python.exe';
+            
+            // Fallback to system Python if venv not found
+            if (!file_exists($pythonExe)) {
+                $pythonExe = 'python';
+            }
+            
+            // Log the Python path being used
+            $logFile = DIR . 'assets/data/start_logs_debug.txt';
+            file_put_contents($logFile, date('Y-m-d H:i:s') . " - Using Python: $pythonExe\n", FILE_APPEND);
+            
+            // Start traffic sniffer with venv Python
+            $snifferCmd = "powershell -Command \"Start-Process -FilePath '$pythonExe' -ArgumentList '\\\"$snifferScript\\\"' -WindowStyle Hidden -PassThru | Select-Object -ExpandProperty Id\"";
+            $snifferPid = shell_exec($snifferCmd);
+            
+            // Start prediction model with venv Python
+            $predictCmd = "powershell -Command \"Start-Process -FilePath '$pythonExe' -ArgumentList '\\\"$predictScript\\\"' -WindowStyle Hidden -PassThru | Select-Object -ExpandProperty Id\"";
+            $predictPid = shell_exec($predictCmd);
 
             $snifferPid = trim($snifferPid);
             $predictPid = trim($predictPid);
+
+            // Log for debugging
+            $logFile = DIR . 'assets/data/start_logs_debug.txt';
+            $debugInfo = date('Y-m-d H:i:s') . " - Sniffer PID: '$snifferPid', Predict PID: '$predictPid'\n";
+            file_put_contents($logFile, $debugInfo, FILE_APPEND);
+
+            // Check if PIDs are valid
+            if (empty($snifferPid) || !is_numeric($snifferPid)) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Failed to start traffic sniffer',
+                    'debug' => "Sniffer PID is empty or invalid: '$snifferPid'"
+                ]);
+                exit;
+            }
+
+            if (empty($predictPid) || !is_numeric($predictPid)) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Failed to start prediction model',
+                    'debug' => "Predict PID is empty or invalid: '$predictPid'"
+                ]);
+                exit;
+            }
 
             // Save PIDs
             $pidData = [
@@ -95,6 +134,21 @@ class ViewController {
             ];
 
             file_put_contents(DIR . 'assets/data/pid_sniffer.json', json_encode($pidData));
+
+            // Add notification
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            $userId = $_SESSION['user_id'] ?? null;
+            if ($userId) {
+                $this->notificationService->add(
+                    $userId,
+                    'success',
+                    'Traffic Monitoring Started',
+                    'Network packet capture and ML prediction model are now active.',
+                    ['sniffer_pid' => $snifferPid, 'predict_pid' => $predictPid]
+                );
+            }
 
             echo json_encode([
                 'success' => true,
@@ -180,6 +234,21 @@ class ViewController {
             }
 
             unlink($pidFile);
+
+            // Add notification
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            $userId = $_SESSION['user_id'] ?? null;
+            if ($userId) {
+                $this->notificationService->add(
+                    $userId,
+                    'info',
+                    'Traffic Monitoring Stopped',
+                    'Network packet capture and ML prediction model have been stopped.',
+                    ['sniffer_pid' => $snifferPid, 'predict_pid' => $predictPid]
+                );
+            }
 
             echo json_encode([
                 'success' => true,

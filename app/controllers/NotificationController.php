@@ -36,6 +36,7 @@ class NotificationController {
         $unreadCount = $this->notificationService->getUnreadCount($userId);
 
         echo json_encode([
+            'success' => true,
             'error' => 0,
             'notifications' => $notifications,
             'unread_count' => $unreadCount

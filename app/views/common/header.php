@@ -10,12 +10,13 @@
         // Define MDIR for JavaScript
         const MDIR = '<?= MDIR ?>';
     </script>
-    <script src="<?= MDIR ?>assets/js/scripts.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
     <link href= "<?= MDIR ?>assets/css/style.css" rel="stylesheet" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/notify/0.4.2/notify.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet" />
     <script src="<?= MDIR ?>assets/js/notifications.js"></script>
+    <script src="<?= MDIR ?>assets/js/scripts.js"></script>
 
     <!-- CyberHawk AI Chatbot -->
     <link href="<?= MDIR ?>assets/css/chatbot.css" rel="stylesheet" />

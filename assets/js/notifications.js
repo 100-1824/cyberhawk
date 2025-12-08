@@ -3,7 +3,7 @@
  * Handles real-time task notifications
  */
 
-(function() {
+(function () {
     'use strict';
 
     let notificationCheckInterval = null;
@@ -22,7 +22,7 @@
         }
 
         // Clean up interval when page is closed
-        window.addEventListener('beforeunload', function() {
+        window.addEventListener('beforeunload', function () {
             if (notificationCheckInterval) {
                 clearInterval(notificationCheckInterval);
             }
@@ -39,15 +39,15 @@
                 'Content-Type': 'application/json'
             }
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                updateNotificationUI(data.notifications, data.unread_count);
-            }
-        })
-        .catch(error => {
-            console.error('Error loading notifications:', error);
-        });
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateNotificationUI(data.notifications, data.unread_count);
+                }
+            })
+            .catch(error => {
+                // Silent error handling
+            });
     }
 
     /**
@@ -123,7 +123,7 @@
     /**
      * Mark a notification as read
      */
-    window.markNotificationAsRead = function(notificationId) {
+    window.markNotificationAsRead = function (notificationId) {
         fetch(MDIR + 'mark-notification-read', {
             method: 'POST',
             headers: {
@@ -131,21 +131,21 @@
             },
             body: 'notification_id=' + encodeURIComponent(notificationId)
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                loadNotifications();
-            }
-        })
-        .catch(error => {
-            console.error('Error marking notification as read:', error);
-        });
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadNotifications();
+                }
+            })
+            .catch(error => {
+                // Silent error handling
+            });
     };
 
     /**
      * Delete a notification
      */
-    window.deleteNotification = function(notificationId) {
+    window.deleteNotification = function (notificationId) {
         fetch(MDIR + 'delete-notification', {
             method: 'POST',
             headers: {
@@ -153,22 +153,22 @@
             },
             body: 'notification_id=' + encodeURIComponent(notificationId)
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                loadNotifications();
-                showToast('Notification deleted', 'success');
-            }
-        })
-        .catch(error => {
-            console.error('Error deleting notification:', error);
-        });
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadNotifications();
+                    showToast('Notification deleted', 'success');
+                }
+            })
+            .catch(error => {
+                // Silent error handling
+            });
     };
 
     /**
      * Clear all notifications
      */
-    window.clearAllNotifications = function() {
+    window.clearAllNotifications = function () {
         if (!confirm('Are you sure you want to clear all notifications?')) {
             return;
         }
@@ -179,16 +179,16 @@
                 'Content-Type': 'application/x-www-form-urlencoded',
             }
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                loadNotifications();
-                showToast('All notifications cleared', 'success');
-            }
-        })
-        .catch(error => {
-            console.error('Error clearing notifications:', error);
-        });
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadNotifications();
+                    showToast('All notifications cleared', 'success');
+                }
+            })
+            .catch(error => {
+                // Silent error handling
+            });
     };
 
     /**
@@ -239,7 +239,7 @@
     /**
      * Add a new notification (can be called from other scripts)
      */
-    window.addLocalNotification = function(title, message, type = 'info') {
+    window.addLocalNotification = function (title, message, type = 'info') {
         // Just trigger a reload of notifications
         // The server-side will have already added the notification
         setTimeout(loadNotifications, 500);

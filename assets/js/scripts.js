@@ -25,7 +25,7 @@ class TrafficLogsManager {
         $.getJSON(this.logsUrl, (data) => {
             this.renderLogs(data);
         }).fail((error) => {
-            console.error("Failed to load traffic logs:", error);
+            // Silent error handling
         });
     }
 
@@ -60,7 +60,7 @@ class TrafficLogsManager {
     }
 
     getProtocolName(protoNum) {
-        switch(parseInt(protoNum)) {
+        switch (parseInt(protoNum)) {
             case 6: return "TCP";
             case 17: return "UDP";
             case 1: return "ICMP";
@@ -69,7 +69,7 @@ class TrafficLogsManager {
     }
 
     getRowClass(protocol) {
-        switch(parseInt(protocol)) {
+        switch (parseInt(protocol)) {
             case 6: return "table-primary";
             case 17: return "table-success";
             default: return "";
@@ -356,8 +356,7 @@ class UIManager {
     }
 
     init() {
-        // Add any UI initialization here
-        console.log("UIManager initialized");
+        // UI initialization
     }
 }
 
@@ -374,8 +373,6 @@ class CyberHawkApp {
     }
 
     init() {
-        console.log("Initializing CyberHawk Application...");
-
         // Initialize all managers
         this.trafficManager = new TrafficLogsManager();
         this.notificationManager = new NotificationManager();
@@ -388,8 +385,6 @@ class CyberHawkApp {
 
         // Expose to window for external access
         window.cyberHawkApp = this;
-
-        console.log("CyberHawk Application initialized successfully");
     }
 
     getTrafficManager() {
@@ -410,10 +405,13 @@ class CyberHawkApp {
 // Legacy Function Support (for backward compatibility)
 // ============================================================================
 
-// Legacy wrapper functions removed - use class instances directly
-// To toggle sidebar: window.cyberHawkApp.uiManager.toggleSidebar()
-// To clear IDS alerts: window.cyberHawkApp.notificationManager.clearAll()
-// To clear task notifications: clearAllNotifications() from notifications.js
+// Global toggleSidebar function for backward compatibility with onclick handlers
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+        sidebar.classList.toggle('minimized');
+    }
+}
 
 
 // ============================================================================

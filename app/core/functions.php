@@ -231,7 +231,7 @@ function logout_user() {
     stopTrafficSniffer();
 
     // Clear logs
-    $logFile = __DIR__ . '/../assets/data/traffic_logs.json';
+    $logFile = __DIR__ . '/../assets/data/traffic_log.json';
     if (file_exists($logFile)) {
         file_put_contents($logFile, json_encode([]));
     }

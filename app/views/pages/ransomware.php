@@ -558,7 +558,6 @@ if (strpos($uri, $basePath) === 0) {
 
         // Initialize on load
         $(document).ready(function() {
-            console.log('[INIT] Initializing ransomware detection page...');
             checkMonitorStatus();
             loadQuarantineFiles();
             updateStatistics();
@@ -572,7 +571,6 @@ if (strpos($uri, $basePath) === 0) {
                 method: "GET",
                 dataType: "json",
                 success: function(data) {
-                    console.log('[STATUS]', data);
                     monitoringActive = data.running || false;
                     updateMonitorUI();
                     
@@ -583,7 +581,7 @@ if (strpos($uri, $basePath) === 0) {
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error('[ERROR] Failed to check monitor status:', error);
+                    // Silent error handling
                 }
             });
         }
@@ -600,7 +598,6 @@ if (strpos($uri, $basePath) === 0) {
                 method: "POST",
                 dataType: "json",
                 success: function(response) {
-                    console.log('[MONITOR]', response);
                     if (response.success) {
                         monitoringActive = !monitoringActive;
                         updateMonitorUI();
@@ -651,7 +648,6 @@ if (strpos($uri, $basePath) === 0) {
         // ==================== ACTIVITY POLLING ====================
 
         function startActivityPolling() {
-            console.log('[POLLING] Starting activity polling...');
             updateFileActivity();
             updateStatistics();
             
@@ -660,7 +656,6 @@ if (strpos($uri, $basePath) === 0) {
         }
 
         function stopActivityPolling() {
-            console.log('[POLLING] Stopping activity polling...');
             if (activityCheckInterval) {
                 clearInterval(activityCheckInterval);
                 activityCheckInterval = null;
@@ -683,7 +678,7 @@ if (strpos($uri, $basePath) === 0) {
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error('[ERROR] Failed to fetch activity:', error);
+                    // Silent error handling
                 }
             });
         }
@@ -757,7 +752,7 @@ if (strpos($uri, $basePath) === 0) {
                     $('#currentScanFile').text(data.current_file || 'Monitoring...');
                 },
                 error: function(xhr, status, error) {
-                    console.error('[ERROR] Failed to fetch stats:', error);
+                    // Silent error handling
                 }
             });
         }
@@ -777,7 +772,6 @@ if (strpos($uri, $basePath) === 0) {
                 method: "POST",
                 dataType: "json",
                 success: function(response) {
-                    console.log('[SCAN]', response);
                     if (response.success) {
                         scanningActive = true;
                         startScanProgressTracking();
@@ -807,7 +801,6 @@ if (strpos($uri, $basePath) === 0) {
                 method: "POST",
                 dataType: "json",
                 success: function(response) {
-                    console.log('[SCAN]', response);
                     if (response.success) {
                         scanningActive = true;
                         startScanProgressTracking();
@@ -825,16 +818,12 @@ if (strpos($uri, $basePath) === 0) {
         }
 
         function startScanProgressTracking() {
-            console.log('[PROGRESS] Starting scan progress tracking...');
-            
             scanCheckInterval = setInterval(function() {
                 $.ajax({
                     url: "<?= MDIR ?>get-scan-progress",
                     method: "GET",
                     dataType: "json",
                     success: function(data) {
-                        console.log('[PROGRESS]', data);
-                        
                         const progress = data.progress || 0;
                         $('#scanPercentage').text(progress + '%');
                         $('#modalScanProgress').css('width', progress + '%');
@@ -850,7 +839,6 @@ if (strpos($uri, $basePath) === 0) {
                         }
                         
                         if (progress >= 100) {
-                            console.log('[COMPLETE] Scan finished');
                             clearInterval(scanCheckInterval);
                             scanningActive = false;
                             setTimeout(function() {
@@ -862,7 +850,7 @@ if (strpos($uri, $basePath) === 0) {
                         }
                     },
                     error: function(xhr, status, error) {
-                        console.error('[ERROR] Failed to get progress:', error);
+                        // Silent error handling
                     }
                 });
             }, 1000); // Check every second
@@ -903,7 +891,7 @@ if (strpos($uri, $basePath) === 0) {
                     displayQuarantineFiles(data);
                 },
                 error: function(xhr, status, error) {
-                    console.error('[ERROR] Failed to load quarantine:', error);
+                    // Silent error handling
                 }
             });
         }

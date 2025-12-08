@@ -1,0 +1,188 @@
+@startuml CyberHawk_Class_Diagram
+
+' Simplified Class Diagram for CyberHawk
+
+skinparam classAttributeIconSize 0
+skinparam class {
+    BackgroundColor<<Controller>> #E3F2FD
+    BackgroundColor<<Service>> #E8F5E9
+    BackgroundColor<<Infrastructure>> #FFF3E0
+}
+
+' ==================== CORE INFRASTRUCTURE ====================
+
+class DatabaseHelper <<Infrastructure>> {
+    - connection
+    + query()
+    + getLastInsertId()
+    + beginTransaction()
+    + commit()
+}
+
+class EmailService <<Service>> {
+    - mailer
+    + sendVerificationEmail()
+    + sendPasswordResetEmail()
+    + sendSecurityAlertEmail()
+    + sendReportEmail()
+}
+
+class NotificationService <<Service>> {
+    - notificationsFile
+    + add()
+    + getUserNotifications()
+    + markAsRead()
+    + getUnreadCount()
+}
+
+' ==================== AUTHENTICATION ====================
+
+class AuthController <<Controller>> {
+    - authService
+    + login()
+    + register()
+    + verify()
+    + logout()
+}
+
+class AuthService <<Service>> {
+    - db
+    - emailService
+    + login()
+    + register()
+    + verify()
+    + createSession()
+}
+
+' ==================== MALWARE ANALYSIS ====================
+
+class MalwareController <<Controller>> {
+    - malwareService
+    + uploadSample()
+    + startScan()
+    + getReport()
+    + getAllReports()
+}
+
+class MalwareService <<Service>> {
+    - db
+    - notificationService
+    + uploadSample()
+    + startScan()
+    + getReport()
+    + getStats()
+}
+
+' ==================== RANSOMWARE PROTECTION ====================
+
+class RansomwareController <<Controller>> {
+    - ransomwareService
+    + startMonitor()
+    + stopMonitor()
+    + startFullScan()
+    + isolateThreats()
+}
+
+class RansomwareService <<Service>> {
+    - db
+    - notificationService
+    + startMonitor()
+    + stopMonitor()
+    + startFullScan()
+    + isolateThreats()
+    + getQuarantineFiles()
+}
+
+' ==================== REPORTING ====================
+
+class ReportingController <<Controller>> {
+    - reportingService
+    + getData()
+    + exportPDF()
+    + emailReport()
+}
+
+class ReportingService <<Service>> {
+    - db
+    - emailService
+    + getExecutiveSummary()
+    + exportPDF()
+    + emailReport()
+}
+
+' ==================== NETWORK ANALYTICS ====================
+
+class NetworkAnalyticsController <<Controller>> {
+    - networkService
+    + getMetrics()
+    + getBandwidthData()
+    + getTopTalkers()
+}
+
+class NetworkAnalyticsService <<Service>> {
+    - db
+    + getMetrics()
+    + getBandwidthData()
+    + getProtocolStats()
+}
+
+' ==================== THREAT INTELLIGENCE ====================
+
+class ThreatIntelligenceController <<Controller>> {
+    - threatService
+    + getThreatFeeds()
+    + getIOCs()
+    + blockIOC()
+}
+
+class ThreatIntelligenceService <<Service>> {
+    - db
+    + getThreatFeeds()
+    + getIOCs()
+    + blockIOC()
+    + whitelistIOC()
+}
+
+' ==================== USER MANAGEMENT ====================
+
+class ProfileController <<Controller>> {
+    - userProfileService
+    + updateProfile()
+    + changePassword()
+    + deleteAccount()
+}
+
+class UserProfileService <<Service>> {
+    - db
+    - emailService
+    + updateProfile()
+    + changePassword()
+    + exportUserData()
+}
+
+' ==================== RELATIONSHIPS ====================
+
+' Controllers use Services
+AuthController --> AuthService
+MalwareController --> MalwareService
+RansomwareController --> RansomwareService
+ReportingController --> ReportingService
+NetworkAnalyticsController --> NetworkAnalyticsService
+ThreatIntelligenceController --> ThreatIntelligenceService
+ProfileController --> UserProfileService
+
+' Services use Infrastructure
+AuthService --> DatabaseHelper
+AuthService --> EmailService
+MalwareService --> DatabaseHelper
+MalwareService --> NotificationService
+RansomwareService --> DatabaseHelper
+RansomwareService --> NotificationService
+ReportingService --> DatabaseHelper
+ReportingService --> EmailService
+NetworkAnalyticsService --> DatabaseHelper
+ThreatIntelligenceService --> DatabaseHelper
+UserProfileService --> DatabaseHelper
+UserProfileService --> EmailService
+
+@enduml

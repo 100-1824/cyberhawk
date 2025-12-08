@@ -4,6 +4,9 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Set timezone to Pakistan Standard Time
+date_default_timezone_set('Asia/Karachi');
+
 require 'app/database/config.php';
 require 'vendor/autoload.php';
 

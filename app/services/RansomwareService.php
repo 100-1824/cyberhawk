@@ -642,6 +642,19 @@ class RansomwareService {
 
             $this->updateQuarantineCount(count($quarantineList));
 
+            // Add notification
+            if (session_status() === PHP_SESSION_NONE) session_start();
+            $userId = $_SESSION['user_id'] ?? null;
+            if ($userId && $isolated > 0) {
+                $this->notificationService->add(
+                    $userId,
+                    'warning',
+                    'Threats Isolated',
+                    "Successfully isolated $isolated threat(s) to quarantine",
+                    ['isolated_count' => $isolated]
+                );
+            }
+
             echo json_encode([
                 'success' => true,
                 'message' => "Successfully isolated $isolated threat(s) to quarantine"

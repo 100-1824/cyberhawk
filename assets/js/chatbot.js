@@ -192,7 +192,6 @@ class CyberHawkChatbot {
         } catch (error) {
             this.hideTypingIndicator();
             this.addMessage('bot', 'Sorry, I\'m having trouble connecting. Please check your internet connection and try again.');
-            console.error('Chatbot error:', error);
         }
     }
 }

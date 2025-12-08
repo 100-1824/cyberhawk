@@ -279,7 +279,7 @@ if (strpos($uri, $basePath) === 0) {
                 $('#quickMalwareDetected').text(malware[0]?.malware_detected || 0);
                 $('#quickRansomwareDetected').text(ransomware[0]?.threats_detected || 0);
             }).fail(function() {
-                console.log('Some data files not available yet');
+                // Some data files not available yet - silent fail
             });
         }
 
@@ -341,7 +341,6 @@ if (strpos($uri, $basePath) === 0) {
                     addPrintButton();
                 }
             }).fail(function(error) {
-                console.error('Error loading data:', error);
                 showError();
             });
         }
@@ -1242,9 +1241,9 @@ function sendReportEmail() {
             $('#emailReportModal').modal('hide');
 
             if (response.success) {
-                showNotification('Success', response.message, 'success');
+                showNotification('Email Sent', 'Report has been sent successfully to: ' + recipientEmail, 'success');
             } else {
-                showNotification('Error', response.message, 'danger');
+                showNotification('Error', response.message || 'Failed to send email', 'danger');
             }
         },
 

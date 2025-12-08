@@ -308,21 +308,17 @@ class ReportingService {
             // Get user name
             $userName = $_SESSION['user_name'] ?? 'CyberHawk User';
 
-            // Create email body
+            // Create email subject
             $subject = 'CyberHawk Security Report - ' . ucfirst($reportType);
-            $body = "
-                <h2>CyberHawk Security Report</h2>
-                <p>Hello <strong>$userName</strong>,</p>
-                <p>Your requested <strong>" . ucfirst($reportType) . " Report</strong> is attached below.</p>
-                <h3>Report Summary:</h3>
-                <pre style='background-color: #f5f5f5; padding: 15px; border-radius: 5px;'>$reportData</pre>
-                <p>Generated on: " . date('Y-m-d H:i:s') . "</p>
-                <hr>
-                <p><small>This is an automated report from CyberHawk IDS.</small></p>
-            ";
+            
+            // Parse report data if it's a JSON string
+            $reportDataArray = is_string($reportData) ? json_decode($reportData, true) : $reportData;
+            if (!is_array($reportDataArray)) {
+                $reportDataArray = ['raw_data' => $reportData];
+            }
 
-            // Send email
-            $sent = $this->emailService->sendEmail($email, $userName, $subject, $body);
+            // Send email using the specialized report email method
+            $sent = $this->emailService->sendReportEmail($email, $userName, $subject, $reportType, $reportDataArray);
 
             if ($sent) {
                 echo json_encode([

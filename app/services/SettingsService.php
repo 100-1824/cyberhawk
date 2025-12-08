@@ -9,12 +9,14 @@
 class SettingsService {
 
     private $db;
+    private $notificationService;
 
     /**
      * Constructor
      */
     public function __construct() {
         $this->db = new DatabaseHelper();
+        $this->notificationService = new NotificationService();
     }
 
     /**
@@ -102,6 +104,15 @@ class SettingsService {
             error_log("Failed to write settings config file: $configPath");
         }
 
+        // Add notification
+        $this->notificationService->add(
+            $userId,
+            'success',
+            'Settings Saved',
+            'Your system settings have been updated successfully.',
+            []
+        );
+
         echo json_encode(['success' => true, 'message' => 'Settings saved successfully']);
         exit;
     }
@@ -136,6 +147,15 @@ class SettingsService {
         $this->saveSetting($userId, 'abuseipdb_api_key', $abuseIPDBKey);
         $this->saveSetting($userId, 'alienvault_api_key', $alienVaultKey);
         $this->saveSetting($userId, 'ipqualityscore_api_key', $ipQualityKey);
+
+        // Add notification
+        $this->notificationService->add(
+            $userId,
+            'success',
+            'API Keys Saved',
+            'Your API keys have been updated successfully.',
+            []
+        );
 
         echo json_encode(['success' => true, 'message' => 'API keys saved successfully']);
         exit;

@@ -1253,7 +1253,7 @@ if ($settingsData && is_array($settingsData)) {
                     $('#userDays').text(data.days_active || 0);
                 },
                 error: function() {
-                    console.log('Failed to load user statistics');
+                    // Failed to load user statistics - silent fail
                 }
             });
         }

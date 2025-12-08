@@ -9,12 +9,14 @@
 class UserProfileService {
 
     private $db;
+    private $notificationService;
 
     /**
      * Constructor
      */
     public function __construct() {
         $this->db = new DatabaseHelper();
+        $this->notificationService = new NotificationService();
     }
 
     /**
@@ -67,6 +69,15 @@ class UserProfileService {
             if ($result) {
                 // Update session
                 $_SESSION['user_name'] = $name;
+
+                // Add notification
+                $this->notificationService->add(
+                    $userId,
+                    'success',
+                    'Profile Updated',
+                    'Your profile information has been updated successfully.',
+                    ['name' => $name]
+                );
 
                 echo json_encode([
                     'success' => true,
@@ -166,6 +177,15 @@ class UserProfileService {
                 $result = $this->db->query($sql, 'si', [$filename, $userId]);
 
                 if ($result) {
+                    // Add notification
+                    $this->notificationService->add(
+                        $userId,
+                        'success',
+                        'Profile Picture Updated',
+                        'Your profile picture has been updated successfully.',
+                        []
+                    );
+
                     echo json_encode([
                         'success' => true,
                         'message' => 'Profile picture updated successfully',
@@ -222,6 +242,15 @@ class UserProfileService {
                 $result = $this->db->query($sql, 'i', [$userId]);
 
                 if ($result) {
+                    // Add notification
+                    $this->notificationService->add(
+                        $userId,
+                        'info',
+                        'Profile Picture Removed',
+                        'Your profile picture has been removed.',
+                        []
+                    );
+
                     echo json_encode([
                         'success' => true,
                         'message' => 'Profile picture removed successfully'
@@ -303,6 +332,15 @@ class UserProfileService {
             $result = $this->db->query($sql, 'si', [$hashedPassword, $userId]);
 
             if ($result) {
+                // Add notification
+                $this->notificationService->add(
+                    $userId,
+                    'warning',
+                    'Password Changed',
+                    'Your account password has been changed. If you did not do this, please contact support immediately.',
+                    []
+                );
+
                 echo json_encode([
                     'success' => true,
                     'message' => 'Password changed successfully'

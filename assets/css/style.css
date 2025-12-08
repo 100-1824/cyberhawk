@@ -2,14 +2,16 @@ body {
   background-color: white;
 }
 
-h2, h4 {
+h2,
+h4 {
   color: gray;
 }
 
 #alerts {
   font-weight: bold;
 }
-.table-responsive{
+
+.table-responsive {
   max-height: 500px;
   overflow-y: auto;
 }
@@ -26,6 +28,7 @@ h2, h4 {
 .sidebar.minimized {
   width: 70px;
 }
+
 .sidebar.minimized .logo-text {
   opacity: 0;
   pointer-events: none;
@@ -55,6 +58,7 @@ h2, h4 {
 .sidebar.minimized .text {
   display: none;
 }
+
 .toggle-btn {
   color: white;
   font-size: 1.5em;
@@ -64,6 +68,7 @@ h2, h4 {
   align-items: center;
   justify-content: flex-start;
 }
+
 .main-header {
   height: 60px;
   background: linear-gradient(135deg, #0a74da, #061a40);
@@ -77,7 +82,7 @@ h2, h4 {
 .header-center {
   flex-grow: 1;
   text-align: center;
-  pointer-events: none; /* disables interaction */
+  pointer-events: none;
 }
 
 .header-right i {
@@ -86,12 +91,13 @@ h2, h4 {
 }
 
 .header-right i:hover {
-  color: #0d6efd; /* bootstrap primary blue on hover */
+  color: #0d6efd;
 }
 
 .user-info span {
   user-select: text;
 }
+
 #messageBox.success {
   background-color: #d4edda;
   color: #155724;
@@ -103,11 +109,15 @@ h2, h4 {
   color: #721c24;
   border: 1px solid #f5c6cb;
 }
+
 .spin {
-    animation: spin 1s linear infinite;
+  animation: spin 1s linear infinite;
 }
+
 @keyframes spin {
-    100% { transform: rotate(360deg); }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .spinner-border {
@@ -115,137 +125,134 @@ h2, h4 {
   height: 2rem;
 }
 
-
-
-
-/* Styling for Dashboard*/
+/* Styling for Dashboard */
 #confirmClearModal .modal-header {
-    background: linear-gradient(135deg, #0a74da, #061a40);
-    color: #fff;
+  background: linear-gradient(135deg, #0a74da, #061a40);
+  color: #fff;
 }
 
 #confirmClearModal .modal-footer {
-    background: white;
-    color: #fff;
+  background: white;
+  color: #fff;
 }
 
 .my-card {
-    border: 2px solid #0a74da;
+  border: 2px solid #0a74da;
 }
 
 .right-border {
-    border-right: 2px solid #0a74da;
+  border-right: 2px solid #0a74da;
 }
 
 .gradient-text {
-    background: linear-gradient(135deg, #0a74da, #061a40);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    color: transparent;
-    font-weight: bold;
+  background: linear-gradient(135deg, #0a74da, #061a40);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  font-weight: bold;
 }
 
 .threat-indicator {
-    width: 200px;
-    height: 200px;
-    margin: 0 auto;
+  width: 200px;
+  height: 200px;
+  margin: 0 auto;
 }
 
 .attack-type-badge {
-    padding: 5px 10px;
-    border-radius: 20px;
-    font-size: 12px;
-    margin: 2px;
-    display: inline-block;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  margin: 2px;
+  display: inline-block;
 }
 
 .threat-low {
-    background: #28a745;
-    color: white;
+  background: #28a745;
+  color: white;
 }
 
 .threat-medium {
-    background: #ffc107;
-    color: black;
+  background: #ffc107;
+  color: black;
 }
 
 .threat-high {
-    background: #fd7e14;
-    color: white;
+  background: #fd7e14;
+  color: white;
 }
 
 .threat-critical {
-    background: #dc3545;
-    color: white;
+  background: #dc3545;
+  color: white;
 }
 
 .live-indicator {
-    width: 10px;
-    height: 10px;
-    background: #28a745;
-    border-radius: 50%;
-    display: inline-block;
-    animation: pulse 2s infinite;
+  width: 10px;
+  height: 10px;
+  background: #28a745;
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulse 2s infinite;
 }
 
 @keyframes pulse {
-    0% {
-        opacity: 1;
-    }
+  0% {
+    opacity: 1;
+  }
 
-    50% {
-        opacity: 0.5;
-    }
+  50% {
+    opacity: 0.5;
+  }
 
-    100% {
-        opacity: 1;
-    }
+  100% {
+    opacity: 1;
+  }
 }
 
 .chart-container {
-    position: relative;
-    height: 300px;
-    width: 100%;
+  position: relative;
+  height: 300px;
+  width: 100%;
 }
 
 .security-score {
-    font-size: 3rem;
-    font-weight: bold;
-    background: linear-gradient(135deg, #0a74da, #061a40);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+  font-size: 3rem;
+  font-weight: bold;
+  background: linear-gradient(135deg, #0a74da, #061a40);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .attack-timeline {
-    height: 100px;
-    overflow-y: auto;
-    font-size: 12px;
+  height: 100px;
+  overflow-y: auto;
+  font-size: 12px;
 }
 
 .attack-entry {
-    padding: 5px;
-    border-left: 3px solid #dc3545;
-    margin-bottom: 5px;
-    background: rgba(220, 53, 69, 0.1);
+  padding: 5px;
+  border-left: 3px solid #dc3545;
+  margin-bottom: 5px;
+  background: rgba(220, 53, 69, 0.1);
 }
 
 html,
 body {
-    max-width: 100%;
-    overflow-x: hidden;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .card {
-    width: 100%;
+  width: 100%;
 }
 
 .table-responsive {
-    overflow-x: auto;
+  overflow-x: auto;
 }
 
 .equal-height-row .card {
-    height: 100%;
+  height: 100%;
 }
 
 /* End of Styling for Dashboard */

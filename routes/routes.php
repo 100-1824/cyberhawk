@@ -30,10 +30,12 @@ require 'app/services/RansomwareService.php';
 require 'app/services/ThreatIntelligenceService.php';
 require 'app/services/NetworkAnalyticsService.php';
 require 'app/services/ReportingService.php';
+require 'app/services/AdminService.php';
 
 // Middleware
 require 'app/middleware/SessionMiddleware.php';
 require 'app/middleware/ApiAuthMiddleware.php';
+require 'app/middleware/AdminMiddleware.php';
 
 // Controllers
 require 'app/controllers/AuthController.php';
@@ -47,6 +49,7 @@ require 'app/controllers/NotificationController.php';
 require 'app/controllers/ThreatIntelligenceController.php';
 require 'app/controllers/NetworkAnalyticsController.php';
 require 'app/controllers/ViewController.php';
+require 'app/controllers/AdminController.php';
 
 // Legacy functions for backward compatibility (will be removed in future)
 require 'app/core/functions.php';
@@ -65,11 +68,13 @@ $notificationController = new NotificationController();
 $threatController = new ThreatIntelligenceController();
 $networkController = new NetworkAnalyticsController();
 $viewController = new ViewController();
+$adminController = new AdminController();
 
 // ==================== INSTANTIATE MIDDLEWARE ====================
 
 $sessionMiddleware = new SessionMiddleware();
 $apiMiddleware = new ApiAuthMiddleware();
+$adminMiddleware = new AdminMiddleware();
 
 // ==================== HELPER FUNCTIONS ====================
 
@@ -89,16 +94,28 @@ function checkApi($handler) {
     return $apiMiddleware->handle($handler);
 }
 
+/**
+ * Admin middleware wrapper - checks if user is admin
+ */
+function checkAdmin($handler) {
+    global $adminMiddleware;
+    return $adminMiddleware->handle($handler);
+}
+
 //Starting FastRoute Library
 use FastRoute\RouteCollector;
 
 $dispatcher = FastRoute\simpleDispatcher(function (RouteCollector $r) use (
     $authController, $dashboardController, $malwareController, $ransomwareController,
     $reportingController, $settingsController, $profileController, $notificationController,
-    $threatController, $networkController, $viewController
+    $threatController, $networkController, $viewController, $adminController
 ) {
 
     // ==================== PUBLIC ROUTES (No Authentication) ====================
+
+    // Landing Page
+    $r->addRoute('GET', MDIR, [$viewController, 'showHome']);
+    $r->addRoute('GET', MDIR.'home', [$viewController, 'showHome']);
 
     $r->addRoute('GET', MDIR.'500', [$viewController, 'show500Error']);
     $r->addRoute('GET', MDIR.'login', [$viewController, 'showLogin']);
@@ -123,6 +140,17 @@ $dispatcher = FastRoute\simpleDispatcher(function (RouteCollector $r) use (
     // ==================== DASHBOARD ROUTES ====================
 
     $r->addRoute('GET', MDIR . 'dashboard', checkSession('user_id', [$dashboardController, 'show']));
+
+    // ==================== ADMIN ROUTES ====================
+
+    $r->addRoute('GET', MDIR . 'admin/dashboard', checkAdmin([$adminController, 'showDashboard']));
+    $r->addRoute('GET', MDIR . 'admin/users', checkAdmin([$adminController, 'getUsers']));
+    $r->addRoute('GET', MDIR . 'admin/get-user', checkAdmin([$adminController, 'getUser']));
+    $r->addRoute('POST', MDIR . 'admin/update-user', checkAdmin([$adminController, 'updateUser']));
+    $r->addRoute('POST', MDIR . 'admin/delete-user', checkAdmin([$adminController, 'deleteUser']));
+    $r->addRoute('GET', MDIR . 'admin/stats', checkAdmin([$adminController, 'getStats']));
+    $r->addRoute('GET', MDIR . 'admin/endpoints', checkAdmin([$adminController, 'getEndpoints']));
+    $r->addRoute('POST', MDIR . 'admin/reset-password', checkAdmin([$adminController, 'resetPassword']));
 
     // ==================== RANSOMWARE ROUTES ====================
 

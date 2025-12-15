@@ -68,7 +68,12 @@ class AuthService {
                     // Clear all logs
                     $this->clearAllLogs();
 
-                    header("Location: " . MDIR . "dashboard");
+                    // Redirect based on role
+                    if ($user['role'] === 'admin') {
+                        header("Location: " . MDIR . "admin/dashboard");
+                    } else {
+                        header("Location: " . MDIR . "dashboard");
+                    }
                     exit;
                 } else {
                     $error = "Invalid email or password.";

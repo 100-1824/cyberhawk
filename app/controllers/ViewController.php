@@ -20,6 +20,16 @@ class ViewController {
     }
 
     /**
+     * Show landing/home page
+     *
+     * @param array $vars Route variables
+     * @return void
+     */
+    public function showHome($vars = []) {
+        require 'app/views/pages/home.php';
+    }
+
+    /**
      * Show login page
      *
      * @param array $vars Route variables

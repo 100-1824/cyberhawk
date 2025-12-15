@@ -2,16 +2,19 @@
 
 class dbConnection{
 
-    private $host ="localhost"; 
-    private $user = "root";
-    private $password = ""; 
-    private $db="cyberhawk";
-
-
+    private $host;
+    private $user;
+    private $password;
+    private $db;
 
     public $dbc;
     
     function __construct() {
+        // Use environment variables with fallbacks for local development
+        $this->host = getenv('DB_HOST') ?: 'localhost';
+        $this->user = getenv('DB_USER') ?: 'root';
+        $this->password = getenv('DB_PASSWORD') ?: '';
+        $this->db = getenv('DB_NAME') ?: 'cyberhawk';
 
         $mysqli = new MySQLi($this->host, $this->user, $this->password, $this->db);
         
@@ -29,12 +32,11 @@ class dbConnection{
 
 
 
- $globalWebsiteUrl = "http://localhost/contract/";
+ $globalWebsiteUrl = getenv('APP_URL') ?: "http://localhost/contract/";
 
 
 
 define('MDIR', '/cyberhawk/');
-define("DIR", "E:/xampp/htdocs/cyberhawk/");  
-
+define("DIR", getenv('APP_DIR') ?: (PHP_OS_FAMILY === 'Windows' ? "E:/xampp/htdocs/cyberhawk/" : "/var/www/html/"));  
 
 ?>

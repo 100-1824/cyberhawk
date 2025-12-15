@@ -1,0 +1,48 @@
+# Git
+.git
+.gitignore
+
+# Virtual environment (Windows)
+fyp/
+
+# IDE
+.vscode/
+.idea/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Logs and data (will be mounted as volumes)
+assets/data/*.json
+assets/data/*.log
+assets/data/*.txt
+assets/data/malware_uploads/
+assets/data/quarantine/
+
+# Windows batch files
+*.bat
+
+# Test files
+tests/
+*.test.*
+
+# Documentation
+*.md
+!README.md
+
+# Docker files (don't include in image)
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Artifacts
+*.puml
+CLASS_DIAGRAM.puml

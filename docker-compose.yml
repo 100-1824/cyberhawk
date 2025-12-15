@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  # Main PHP/Apache Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cyberhawk-app
+    ports:
+      - "80:80"
+    environment:
+      - DB_HOST=mysql
+      - DB_USER=${DB_USER:-cyberhawk}
+      - DB_PASSWORD=${DB_PASSWORD:-cyberhawk_secure_2024}
+      - DB_NAME=${DB_NAME:-cyberhawk}
+      - APP_DIR=/var/www/html/
+      - PYTHON_DATA_DIR=/var/www/html/assets/data
+    volumes:
+      - app_data:/var/www/html/assets/data
+      - app_uploads:/var/www/html/assets/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - cyberhawk-network
+    restart: unless-stopped
+
+  # Python Services (Traffic Sniffer, Malware Analysis)
+  python:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    container_name: cyberhawk-python
+    network_mode: host
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    environment:
+      - PYTHON_DATA_DIR=/var/www/html/assets/data
+      - VIRUSTOTAL_API_KEY=${VIRUSTOTAL_API_KEY:-}
+    volumes:
+      - app_data:/var/www/html/assets/data
+    restart: unless-stopped
+
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: cyberhawk-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root_secure_2024}
+      - MYSQL_DATABASE=${DB_NAME:-cyberhawk}
+      - MYSQL_USER=${DB_USER:-cyberhawk}
+      - MYSQL_PASSWORD=${DB_PASSWORD:-cyberhawk_secure_2024}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root_secure_2024}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - cyberhawk-network
+    restart: unless-stopped
+
+  # phpMyAdmin (optional, for database management)
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: cyberhawk-phpmyadmin
+    environment:
+      - PMA_HOST=mysql
+      - PMA_USER=root
+      - PMA_PASSWORD=${MYSQL_ROOT_PASSWORD:-root_secure_2024}
+    ports:
+      - "8080:80"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - cyberhawk-network
+    restart: unless-stopped
+
+volumes:
+  app_data:
+    driver: local
+  app_uploads:
+    driver: local
+  mysql_data:
+    driver: local
+
+networks:
+  cyberhawk-network:
+    driver: bridge

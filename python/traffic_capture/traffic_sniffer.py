@@ -7,10 +7,7 @@ import sys
 import numpy as np
 from datetime import datetime
 
-# Use environment variable for data directory, with fallbacks for different environments
-DATA_DIR = os.getenv('PYTHON_DATA_DIR', os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'assets', 'data'))
-OUTPUT_FILE = os.path.join(DATA_DIR, 'traffic_log.json')
-
+OUTPUT_FILE = r"E:/xampp/htdocs/cyberhawk/assets/data/traffic_log.json"
 
 # Flow tracking dictionaries
 flow_table = {}
@@ -520,8 +517,7 @@ def write_flows_periodically():
 
 def check_permissions():
     """Check if running with appropriate permissions"""
-    error_log = os.path.join(DATA_DIR, 'sniffer_error.log')
-
+    error_log = r"E:/xampp/htdocs/cyberhawk/assets/data/sniffer_error.log"
     
     if os.name == 'nt':
         try:

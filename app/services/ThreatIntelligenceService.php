@@ -113,6 +113,7 @@ class ThreatIntelligenceService {
 
     /**
      * Block an Indicator of Compromise
+     * Uses Python script to block IP via null routing and hosts file
      *
      * @return void JSON response
      */
@@ -121,29 +122,107 @@ class ThreatIntelligenceService {
 
         $ioc = $_POST['ioc'] ?? '';
         $type = $_POST['type'] ?? 'ip';
+        $reason = $_POST['reason'] ?? 'User blocked via Threat Intelligence';
 
         if (empty($ioc)) {
             echo json_encode(['success' => false, 'message' => 'IOC is required']);
             return;
         }
 
-        // Save blocked IOC
         $projectDir = rtrim(DIR, '/\\');
-        $blockedFile = $projectDir . '/assets/data/blocked_iocs.json';
-
-        $blocked = file_exists($blockedFile) ? json_decode(file_get_contents($blockedFile), true) : [];
-
-        $blocked[] = [
-            'ioc' => $ioc,
-            'type' => $type,
-            'blockedAt' => date('Y-m-d H:i:s'),
-            'reason' => 'User blocked',
-            'status' => 'active'
-        ];
-
-        file_put_contents($blockedFile, json_encode($blocked, JSON_PRETTY_PRINT));
-
-        echo json_encode(['success' => true, 'message' => "IOC {$ioc} has been blocked"]);
+        
+        // For IP type, use the Python blocker script
+        if ($type === 'ip') {
+            $pythonScript = $projectDir . '/app/scripts/ip_blocker.py';
+            $pythonPath = $projectDir . '/fyp/Scripts/python.exe';
+            
+            // Fallback to system python if venv python doesn't exist
+            if (!file_exists($pythonPath)) {
+                $pythonPath = 'python';
+            }
+            
+            // Escape the IP and reason for shell
+            $escapedIoc = escapeshellarg($ioc);
+            $escapedReason = escapeshellarg($reason);
+            
+            // Execute the Python script
+            $command = "\"{$pythonPath}\" \"{$pythonScript}\" block --ip {$escapedIoc} --reason {$escapedReason} --json 2>&1";
+            $output = shell_exec($command);
+            
+            // Parse the JSON response from Python
+            $result = json_decode($output, true);
+            
+            if ($result && isset($result['success']) && $result['success']) {
+                // Also save to blocked_iocs.json for tracking
+                $blockedFile = $projectDir . '/assets/data/blocked_iocs.json';
+                $blocked = file_exists($blockedFile) ? json_decode(file_get_contents($blockedFile), true) : [];
+                
+                // Check if already in the list
+                $alreadyBlocked = false;
+                foreach ($blocked as $item) {
+                    if ($item['ioc'] === $ioc) {
+                        $alreadyBlocked = true;
+                        break;
+                    }
+                }
+                
+                if (!$alreadyBlocked) {
+                    $blocked[] = [
+                        'ioc' => $ioc,
+                        'type' => $type,
+                        'blockedAt' => date('Y-m-d H:i:s'),
+                        'reason' => $reason,
+                        'status' => 'active',
+                        'systemBlocked' => true,
+                        'methods' => $result['methods'] ?? []
+                    ];
+                    file_put_contents($blockedFile, json_encode($blocked, JSON_PRETTY_PRINT));
+                }
+                
+                echo json_encode([
+                    'success' => true, 
+                    'message' => "IP {$ioc} has been blocked at system level",
+                    'details' => $result
+                ]);
+            } else {
+                // If Python script failed, still save to JSON but mark as not system blocked
+                $blockedFile = $projectDir . '/assets/data/blocked_iocs.json';
+                $blocked = file_exists($blockedFile) ? json_decode(file_get_contents($blockedFile), true) : [];
+                
+                $blocked[] = [
+                    'ioc' => $ioc,
+                    'type' => $type,
+                    'blockedAt' => date('Y-m-d H:i:s'),
+                    'reason' => $reason,
+                    'status' => 'pending',
+                    'systemBlocked' => false,
+                    'error' => $result['error'] ?? $output ?? 'Unknown error'
+                ];
+                file_put_contents($blockedFile, json_encode($blocked, JSON_PRETTY_PRINT));
+                
+                echo json_encode([
+                    'success' => false, 
+                    'message' => "Failed to block IP at system level. Saved for manual blocking.",
+                    'error' => $result['error'] ?? $output ?? 'Unknown error',
+                    'note' => 'Run XAMPP/Apache as Administrator to enable system-level IP blocking'
+                ]);
+            }
+        } else {
+            // For non-IP types (domains, hashes), just save to JSON
+            $blockedFile = $projectDir . '/assets/data/blocked_iocs.json';
+            $blocked = file_exists($blockedFile) ? json_decode(file_get_contents($blockedFile), true) : [];
+            
+            $blocked[] = [
+                'ioc' => $ioc,
+                'type' => $type,
+                'blockedAt' => date('Y-m-d H:i:s'),
+                'reason' => $reason,
+                'status' => 'active'
+            ];
+            
+            file_put_contents($blockedFile, json_encode($blocked, JSON_PRETTY_PRINT));
+            echo json_encode(['success' => true, 'message' => "IOC {$ioc} has been blocked"]);
+        }
     }
 
     /**
@@ -175,6 +254,74 @@ class ThreatIntelligenceService {
         file_put_contents($whitelistFile, json_encode($whitelist, JSON_PRETTY_PRINT));
 
         echo json_encode(['success' => true, 'message' => "IOC {$ioc} has been whitelisted"]);
+    }
+
+    /**
+     * Unblock an Indicator of Compromise
+     * Uses Python script to remove null route and hosts file entry
+     *
+     * @return void JSON response
+     */
+    public function unblockIOC() {
+        header('Content-Type: application/json');
+
+        $ioc = $_POST['ioc'] ?? '';
+
+        if (empty($ioc)) {
+            echo json_encode(['success' => false, 'message' => 'IOC is required']);
+            return;
+        }
+
+        $projectDir = rtrim(DIR, '/\\');
+        $pythonScript = $projectDir . '/app/scripts/ip_blocker.py';
+        $pythonPath = $projectDir . '/fyp/Scripts/python.exe';
+        
+        // Fallback to system python if venv python doesn't exist
+        if (!file_exists($pythonPath)) {
+            $pythonPath = 'python';
+        }
+        
+        // Execute unblock command
+        $escapedIoc = escapeshellarg($ioc);
+        $command = "\"{$pythonPath}\" \"{$pythonScript}\" unblock --ip {$escapedIoc} --json 2>&1";
+        $output = shell_exec($command);
+        
+        $result = json_decode($output, true);
+        
+        // Remove from blocked_iocs.json
+        $blockedFile = $projectDir . '/assets/data/blocked_iocs.json';
+        if (file_exists($blockedFile)) {
+            $blocked = json_decode(file_get_contents($blockedFile), true);
+            $blocked = array_filter($blocked, function($item) use ($ioc) {
+                return $item['ioc'] !== $ioc;
+            });
+            file_put_contents($blockedFile, json_encode(array_values($blocked), JSON_PRETTY_PRINT));
+        }
+        
+        echo json_encode([
+            'success' => true, 
+            'message' => "IP {$ioc} has been unblocked",
+            'details' => $result
+        ]);
+    }
+
+    /**
+     * Get all blocked IOCs
+     *
+     * @return void JSON response
+     */
+    public function getBlockedIOCs() {
+        header('Content-Type: application/json');
+
+        $projectDir = rtrim(DIR, '/\\');
+        $blockedFile = $projectDir . '/assets/data/blocked_iocs.json';
+
+        if (file_exists($blockedFile)) {
+            $blocked = json_decode(file_get_contents($blockedFile), true);
+            echo json_encode(['success' => true, 'blocked' => $blocked ? $blocked : []]);
+        } else {
+            echo json_encode(['success' => true, 'blocked' => []]);
+        }
     }
 }
 

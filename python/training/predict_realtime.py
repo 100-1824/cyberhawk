@@ -594,13 +594,8 @@ def main():
     print("=" * 80)
     print(f"\n⏰ Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
-    # Wait for traffic sniffer to collect initial data
-    STARTUP_DELAY = 10  # seconds
-    print(f"\n⏳ Waiting {STARTUP_DELAY} seconds for traffic sniffer to collect initial data...")
-    for remaining in range(STARTUP_DELAY, 0, -1):
-        print(f"   Starting in {remaining} seconds...", end='\r')
-        time.sleep(1)
-    print("\n✅ Startup delay complete. Beginning monitoring...")
+    # Model starts immediately - no delay needed
+    print(f"\n✅ Starting monitoring immediately...")
     
     try:
         # Load model components

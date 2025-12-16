@@ -90,6 +90,26 @@ class ThreatIntelligenceController {
     public function whitelistIOC($vars = []) {
         return $this->threatService->whitelistIOC();
     }
+
+    /**
+     * Unblock an IOC
+     *
+     * @param array $vars Route variables
+     * @return void JSON response
+     */
+    public function unblockIOC($vars = []) {
+        return $this->threatService->unblockIOC();
+    }
+
+    /**
+     * Get all blocked IOCs
+     *
+     * @param array $vars Route variables
+     * @return void JSON response
+     */
+    public function getBlockedIOCs($vars = []) {
+        return $this->threatService->getBlockedIOCs();
+    }
 }
 
 ?>

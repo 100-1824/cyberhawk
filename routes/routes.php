@@ -129,6 +129,7 @@ $dispatcher = FastRoute\simpleDispatcher(function (RouteCollector $r) use (
     // Traffic log operations (public for testing)
     $r->addRoute('POST', MDIR . 'start-logs', [$viewController, 'startLogsHandler']);
     $r->addRoute('POST', MDIR . 'stop-logs', [$viewController, 'stopLogsHandler']);
+    $r->addRoute('GET', MDIR . 'get-logs-status', [$viewController, 'getLogsStatus']);
     $r->addRoute('GET', MDIR . 'clearlogs', [$viewController, 'clearTrafficLogs']);
 
     // Legacy routes (still using functions - to be refactored)
@@ -233,6 +234,8 @@ $dispatcher = FastRoute\simpleDispatcher(function (RouteCollector $r) use (
     $r->addRoute('GET', MDIR . 'get-iocs', checkSession('user_id', [$threatController, 'getIOCs']));
     $r->addRoute('GET', MDIR . 'get-vulnerabilities', checkSession('user_id', [$threatController, 'getVulnerabilities']));
     $r->addRoute('POST', MDIR . 'block-ioc', checkSession('user_id', [$threatController, 'blockIOC']));
+    $r->addRoute('POST', MDIR . 'unblock-ioc', checkSession('user_id', [$threatController, 'unblockIOC']));
+    $r->addRoute('GET', MDIR . 'get-blocked-iocs', checkSession('user_id', [$threatController, 'getBlockedIOCs']));
     $r->addRoute('POST', MDIR . 'whitelist-ioc', checkSession('user_id', [$threatController, 'whitelistIOC']));
 
     // ==================== NETWORK ANALYTICS ROUTES ====================

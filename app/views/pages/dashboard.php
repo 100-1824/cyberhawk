@@ -178,7 +178,7 @@ if (strpos($uri, $basePath) === 0) {
                                     <span class="live-indicator"></span> Real-Time Threat Analysis
                                 </h5>
                                 <div>
-                                    <span class="badge bg-success" id="modelStatus">Model Active</span>
+                                    <span class="badge bg-secondary" id="modelStatus">Model Inactive</span>
                                     <span class="badge bg-info" id="packetRate">0 pkt/s</span>
                                 </div>
                             </div>
@@ -483,6 +483,7 @@ if (strpos($uri, $basePath) === 0) {
         initializeCharts();
         startDashboardUpdates();
         setupSearchFilter();
+        checkLogsStatus(); // Check if logs are already running
 
         // Initialize log container
         const logContainer = document.getElementById('logContainer');
@@ -490,6 +491,41 @@ if (strpos($uri, $basePath) === 0) {
             logContainer.textContent = "[INFO] System initialized...\n[INFO] Waiting for data...\n";
         }
     });
+
+    // Check if logs/model are currently running (restores button states on page navigation)
+    function checkLogsStatus() {
+        $.ajax({
+            url: "<?= MDIR ?>get-logs-status",
+            method: "GET",
+            dataType: "json",
+            success: function(response) {
+                if (response.success && response.running) {
+                    // Logs are running - update button states
+                    $("#startLogsBtn").prop('disabled', true);
+                    $("#stopLogsBtn").prop('disabled', false);
+                    $("#modelStatus").text("Model Active").removeClass("bg-secondary").addClass("bg-success");
+                    
+                    const logContainer = document.getElementById('logContainer');
+                    if (logContainer) {
+                        logContainer.textContent += "[INFO] Traffic monitoring is already active\n";
+                        logContainer.textContent += "[INFO] Sniffer PID: " + response.sniffer_pid + "\n";
+                        logContainer.textContent += "[INFO] Model PID: " + response.predict_pid + "\n";
+                    }
+                } else {
+                    // Logs are not running - ensure buttons are in default state
+                    $("#startLogsBtn").prop('disabled', false);
+                    $("#stopLogsBtn").prop('disabled', true);
+                    $("#modelStatus").text("Model Inactive").removeClass("bg-success").addClass("bg-secondary");
+                }
+            },
+            error: function() {
+                // On error, assume not running
+                $("#startLogsBtn").prop('disabled', false);
+                $("#stopLogsBtn").prop('disabled', true);
+                $("#modelStatus").text("Model Inactive").removeClass("bg-success").addClass("bg-secondary");
+            }
+        });
+    }
 
     // Clean up intervals on page unload
     $(window).on('beforeunload', function() {

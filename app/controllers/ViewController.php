@@ -274,6 +274,76 @@ class ViewController {
     }
 
     /**
+     * Get logs/model status - checks if processes are still running
+     *
+     * @param array $vars Route variables
+     * @return void JSON response
+     */
+    public function getLogsStatus($vars = []) {
+        header('Content-Type: application/json');
+
+        $pidFile = DIR . 'assets/data/pid_sniffer.json';
+
+        if (!file_exists($pidFile)) {
+            echo json_encode([
+                'success' => true,
+                'running' => false,
+                'message' => 'No active processes'
+            ]);
+            exit;
+        }
+
+        $pidData = json_decode(file_get_contents($pidFile), true);
+
+        if (!isset($pidData['sniffer_pid']) || !isset($pidData['predict_pid'])) {
+            echo json_encode([
+                'success' => true,
+                'running' => false,
+                'message' => 'Invalid PID data'
+            ]);
+            exit;
+        }
+
+        $snifferPid = $pidData['sniffer_pid'];
+        $predictPid = $pidData['predict_pid'];
+
+        // Check if processes are actually running
+        $isWindows = (stripos(PHP_OS, 'WIN') === 0);
+        $snifferRunning = false;
+        $predictRunning = false;
+
+        if ($isWindows) {
+            // Windows - check if process exists
+            $snifferCheck = shell_exec("tasklist /FI \"PID eq $snifferPid\" 2>&1");
+            $predictCheck = shell_exec("tasklist /FI \"PID eq $predictPid\" 2>&1");
+            
+            $snifferRunning = strpos($snifferCheck, (string)$snifferPid) !== false && strpos($snifferCheck, 'No tasks') === false;
+            $predictRunning = strpos($predictCheck, (string)$predictPid) !== false && strpos($predictCheck, 'No tasks') === false;
+        } else {
+            // Linux - check if process exists
+            $snifferRunning = file_exists("/proc/$snifferPid");
+            $predictRunning = file_exists("/proc/$predictPid");
+        }
+
+        $anyRunning = $snifferRunning || $predictRunning;
+
+        // If no processes are running, clean up the PID file
+        if (!$anyRunning) {
+            unlink($pidFile);
+        }
+
+        echo json_encode([
+            'success' => true,
+            'running' => $anyRunning,
+            'sniffer_running' => $snifferRunning,
+            'predict_running' => $predictRunning,
+            'sniffer_pid' => $snifferPid,
+            'predict_pid' => $predictPid
+        ]);
+        exit;
+    }
+
+    /**
      * Clear traffic logs
      *
      * @param array $vars Route variables

@@ -683,12 +683,49 @@ if (strpos($uri, $basePath) === 0) {
                         });
                     }
 
+                    // First, fetch blocked IPs
+                    $.ajax({
+                        url: '<?= MDIR ?>get-blocked-iocs',
+                        dataType: 'json',
+                        async: false, // We need this before building the table
+                        success: function(blockedData) {
+                            window.blockedIPs = blockedData.blocked ? blockedData.blocked.map(b => b.ioc) : [];
+                        },
+                        error: function() {
+                            window.blockedIPs = [];
+                        }
+                    });
+
                     // IP Addresses
                     let ipHtml = '';
-                    if (suspiciousIPs.length === 0) {
+                    if (suspiciousIPs.length === 0 && (!window.blockedIPs || window.blockedIPs.length === 0)) {
                         ipHtml = '<tr><td colspan="5" class="text-center text-muted">No malicious IPs detected</td></tr>';
                     } else {
+                        // Show blocked IPs first (with unblock button)
+                        if (window.blockedIPs && window.blockedIPs.length > 0) {
+                            window.blockedIPs.forEach(ip => {
+                                ipHtml += `
+                                    <tr class="table-danger">
+                                        <td>${ip} <span class="badge bg-danger">BLOCKED</span></td>
+                                        <td><span class="threat-level-critical">Blocked</span></td>
+                                        <td>-</td>
+                                        <td>System Level</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-success" onclick="unblockIOC('${ip}')">
+                                                <i class="bi bi-unlock"></i> Unblock
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `;
+                            });
+                        }
+                        
+                        // Then show suspicious IPs (excluding already blocked ones)
                         suspiciousIPs.slice(0, 10).forEach(item => {
+                            // Skip if already blocked
+                            if (window.blockedIPs && window.blockedIPs.includes(item.ip)) {
+                                return;
+                            }
                             const levelClass = `threat-level-${item.level.toLowerCase()}`;
                             ipHtml += `
                                 <tr>
@@ -730,12 +767,70 @@ if (strpos($uri, $basePath) === 0) {
 
         // ==================== UTILITY FUNCTIONS ====================
         function blockIOC(ioc) {
-            alert(`Blocking IOC: ${ioc}`);
-            showNotification('Success', `IOC ${ioc} has been blocked`, 'success');
+            if (!confirm(`Are you sure you want to block IP: ${ioc}?\n\nThis will block all traffic to/from this IP on your system.`)) {
+                return;
+            }
+            
+            // Show loading state
+            showNotification('Processing', `Blocking IP ${ioc}...`, 'info');
+            
+            $.ajax({
+                url: '<?= MDIR ?>block-ioc',
+                method: 'POST',
+                data: {
+                    ioc: ioc,
+                    type: 'ip',
+                    reason: 'Blocked via Threat Intelligence - Malicious activity detected'
+                },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        showNotification('Success', response.message, 'success');
+                        // Reload IOC table to reflect changes
+                        loadIOCs();
+                    } else {
+                        showNotification('Warning', response.message, 'warning');
+                        if (response.note) {
+                            setTimeout(() => {
+                                alert('Note: ' + response.note);
+                            }, 500);
+                        }
+                    }
+                },
+                error: function(xhr, status, error) {
+                    showNotification('Error', 'Failed to block IP: ' + error, 'danger');
+                }
+            });
         }
 
         function viewHashDetails(hash) {
             alert(`Viewing details for: ${hash}`);
+        }
+
+        function unblockIOC(ioc) {
+            if (!confirm(`Are you sure you want to unblock IP: ${ioc}?`)) {
+                return;
+            }
+            
+            showNotification('Processing', `Unblocking IP ${ioc}...`, 'info');
+            
+            $.ajax({
+                url: '<?= MDIR ?>unblock-ioc',
+                method: 'POST',
+                data: { ioc: ioc },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        showNotification('Success', response.message, 'success');
+                        loadIOCs();
+                    } else {
+                        showNotification('Error', response.message, 'danger');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    showNotification('Error', 'Failed to unblock IP: ' + error, 'danger');
+                }
+            });
         }
 
         function updateLastUpdate() {
@@ -744,7 +839,8 @@ if (strpos($uri, $basePath) === 0) {
 
         function showNotification(title, message, type) {
             const alertClass = type === 'danger' ? 'alert-danger' : 
-                              type === 'success' ? 'alert-success' : 'alert-info';
+                              type === 'success' ? 'alert-success' :
+                              type === 'warning' ? 'alert-warning' : 'alert-info';
             
             const notification = $(`
                 <div class="alert ${alertClass} alert-dismissible fade show position-fixed" 

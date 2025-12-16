@@ -1,4 +1,8 @@
 <!-- sidebar.php -->
+
+<!-- Mobile sidebar overlay backdrop -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
 <nav class="sidebar minimized" id="sidebar">
   <div class="toggle-btn" onclick="toggleSidebar()">
     <i class="bi bi-list"></i>
@@ -32,6 +36,41 @@
 <script>
   function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
-    sidebar.classList.toggle('minimized');
+    const overlay = document.getElementById('sidebarOverlay');
+    
+    // Check if on mobile (less than 992px)
+    if (window.innerWidth < 992) {
+      sidebar.classList.toggle('show');
+      overlay.classList.toggle('show');
+    } else {
+      sidebar.classList.toggle('minimized');
+    }
   }
+
+  function closeSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar.classList.remove('show');
+    overlay.classList.remove('show');
+  }
+
+  // Close sidebar when clicking a link (mobile)
+  document.querySelectorAll('.nav-links a').forEach(link => {
+    link.addEventListener('click', () => {
+      if (window.innerWidth < 992) {
+        closeSidebar();
+      }
+    });
+  });
+
+  // Handle resize events
+  window.addEventListener('resize', () => {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    
+    if (window.innerWidth >= 992) {
+      sidebar.classList.remove('show');
+      overlay.classList.remove('show');
+    }
+  });
 </script>
